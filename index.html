@@ -608,16 +608,6 @@ function addDays(date, n) {
 }
 
 // ─── DATA PROCESSING ──────────────────────────────
-function addBusinessDays(date, n) {
-  const d = new Date(date);
-  let added = 0;
-  while (added < n) {
-    d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
-  }
-  return d;
-}
-
 function processRows(rows) {
   const C = CONFIG.COLUMNS;
   const paymentMap = {};
@@ -632,11 +622,11 @@ function processRows(rows) {
     const premium = cleanPremium(row[C.annualPremium]);
     if (premium <= 0) continue;
 
-    const bizDays = provider === 'Trans'   ? CONFIG.TRANS_BIZ_DAYS
-                  : provider === 'Ethos'   ? CONFIG.ETHOS_BIZ_DAYS
-                  : CONFIG.MUTUAL_BIZ_DAYS;
+    const days = provider === 'Trans'   ? CONFIG.TRANS_DAYS
+               : provider === 'Ethos'   ? CONFIG.ETHOS_DAYS
+               : CONFIG.MUTUAL_DAYS;
 
-    const payDate = addBusinessDays(effDate, bizDays);
+    const payDate = toBusinessDay(addDays(effDate, days));
     const key = dateKey(payDate);
 
     if (!paymentMap[key]) paymentMap[key] = {};
@@ -735,17 +725,17 @@ function renderSummary() {
       <div class="card trans">
         <div class="card-label">Transamerica</div>
         <div class="card-value">${fmt(tTotal)}</div>
-        <div class="card-sub">${tCount} polic${tCount !== 1 ? 'ies' : 'y'} · eff +6 biz days</div>
+        <div class="card-sub">${tCount} polic${tCount !== 1 ? 'ies' : 'y'} · eff +7 days</div>
       </div>
       <div class="card ethos">
         <div class="card-label">Ethos / Trustage</div>
         <div class="card-value">${fmt(eTotal)}</div>
-        <div class="card-sub">${eCount} polic${eCount !== 1 ? 'ies' : 'y'} · eff +10 biz days</div>
+        <div class="card-sub">${eCount} polic${eCount !== 1 ? 'ies' : 'y'} · eff +13 days</div>
       </div>
       <div class="card mutual">
         <div class="card-label">Mutual of Omaha</div>
         <div class="card-value">${fmt(mTotal)}</div>
-        <div class="card-sub">${mCount} polic${mCount !== 1 ? 'ies' : 'y'} · eff +8 biz days</div>
+        <div class="card-sub">${mCount} polic${mCount !== 1 ? 'ies' : 'y'} · eff +10 days</div>
       </div>
     </div>`;
 }
@@ -766,9 +756,9 @@ function renderCalendar() {
       </div>
     </div>
     <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:var(--trans)"></div>Transamerica (eff +7 biz days)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--ethos)"></div>Ethos / Trustage (eff +13 biz days)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--mutual)"></div>Mutual of Omaha (eff +10 biz days)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--trans)"></div>Transamerica (eff +7 days)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ethos)"></div>Ethos / Trustage (eff +13 days)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--mutual)"></div>Mutual of Omaha (eff +10 days)</div>
     </div>
     <div class="day-headers">
       ${DAYS_SHORT.map(d => `<div class="day-header">${d}</div>`).join('')}
