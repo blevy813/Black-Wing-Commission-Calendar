@@ -7,7 +7,7 @@
 const CONFIG = {
   // Paste your published Google Sheet CSV URL here
   // File → Share → Publish to web → Select sheet → CSV → Publish
-  SHEET_URL: "YOUR_GOOGLE_SHEET_CSV_URL_HERE",
+  SHEET_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTOMQ5L9Xd3KIX8sRhxHVCHj8Vm1JZtBgXCgXO1cHTFNUrwX97V7aVnegxiUIUF531GgpqAy8zU8WAA/pub?gid=1014577270&single=true&output=csv",
 
   // Payment windows in BUSINESS DAYS after effective date (weekends skipped)
   TRANS_BIZ_DAYS:   6,
