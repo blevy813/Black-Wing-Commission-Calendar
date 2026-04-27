@@ -189,6 +189,22 @@
     transition: background 0.15s, border-color 0.15s;
   }
   .nav-btn:hover { background: var(--surface2); border-color: var(--dimmer); }
+  .range-quick-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .range-quick-btn:hover, .range-quick-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
   .today-btn {
     background: transparent;
     border: 1px solid var(--border2);
@@ -785,8 +801,49 @@ function renderCalendar() {
       <div class="cal-title">${MONTHS[calMonth]} ${calYear}</div>
       <div class="nav-controls">
         <button class="today-btn" onclick="goToday()">Today</button>
+        <button class="today-btn" onclick="toggleRangePicker()" id="range-btn">📊 Range</button>
         <button class="nav-btn" onclick="prevMonth()">←</button>
         <button class="nav-btn" onclick="nextMonth()">→</button>
+      </div>
+    </div>
+
+    <div id="range-panel" style="display:none;background:var(--surface);border:1px solid var(--border2);border-radius:var(--border-radius-lg);padding:20px;margin-bottom:16px">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Quick Range</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="range-quick-btn" onclick="setQuickRange('mtd')">Month to Date</button>
+            <button class="range-quick-btn" onclick="setQuickRange('thismonth')">Full Month</button>
+            <button class="range-quick-btn" onclick="setQuickRange('next7')">Next 7 Days</button>
+            <button class="range-quick-btn" onclick="setQuickRange('next30')">Next 30 Days</button>
+            <button class="range-quick-btn" onclick="setQuickRange('all')">All Time</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Custom Range</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="date" id="range-start" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:13px;font-family:inherit">
+            <span style="color:var(--muted);font-size:13px">to</span>
+            <input type="date" id="range-end" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:13px;font-family:inherit">
+            <button class="nav-btn" onclick="applyCustomRange()">Apply</button>
+          </div>
+        </div>
+      </div>
+      <div id="range-results" style="display:none">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px" id="range-label"></div>
+        <div id="range-cards" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px"></div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
+            <thead><tr>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border2)">Payment Date</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border2)">Carrier</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border2)">Policies</th>
+              <th style="text-align:right;padding:6px 10px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border2)">AP Total</th>
+            </tr></thead>
+            <tbody id="range-tbody"></tbody>
+            <tfoot id="range-tfoot"></tfoot>
+          </table>
+        </div>
       </div>
     </div>
     <div class="legend">
@@ -1003,6 +1060,130 @@ function showSetupScreen() {
         </p>
       </div>
     </div>`;
+}
+
+// ─── RANGE PICKER ────────────────────────────────
+function toggleRangePicker() {
+  const panel = document.getElementById('range-panel');
+  const btn = document.getElementById('range-btn');
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  btn.style.background = open ? 'var(--accent)' : '';
+  btn.style.color = open ? 'white' : '';
+  btn.style.borderColor = open ? 'var(--accent)' : '';
+}
+
+function fmtDate(d) {
+  return `${MONTHS[d.getMonth()].slice(0,3)} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function dk(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function setQuickRange(type) {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let start, end;
+
+  if (type === 'mtd') {
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    end = new Date(today);
+  } else if (type === 'thismonth') {
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    end = new Date(today.getFullYear(), today.getMonth()+1, 0);
+  } else if (type === 'next7') {
+    start = new Date(today);
+    end = new Date(today); end.setDate(end.getDate() + 7);
+  } else if (type === 'next30') {
+    start = new Date(today);
+    end = new Date(today); end.setDate(end.getDate() + 30);
+  } else if (type === 'all') {
+    const keys = Object.keys(paymentData).sort();
+    if (!keys.length) return;
+    start = new Date(keys[0]);
+    end = new Date(keys[keys.length-1]);
+  }
+
+  document.querySelectorAll('.range-quick-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('range-start').value = dk(start);
+  document.getElementById('range-end').value = dk(end);
+  applyCustomRange();
+}
+
+function applyCustomRange() {
+  const startVal = document.getElementById('range-start').value;
+  const endVal   = document.getElementById('range-end').value;
+  if (!startVal || !endVal) return;
+
+  const start = new Date(startVal + 'T00:00:00');
+  const end   = new Date(endVal   + 'T00:00:00');
+  if (start > end) return;
+
+  // Accumulate totals
+  let tT=0,eT=0,mT=0,bT=0,tC=0,eC=0,mC=0,bC=0;
+  const rows = [];
+
+  const sorted = Object.keys(paymentData).sort();
+  for (const key of sorted) {
+    const d = new Date(key + 'T00:00:00');
+    if (d < start || d > end) continue;
+    const day = paymentData[key];
+    const [y,mo,da] = key.split('-').map(Number);
+    const dateLabel = `${MONTHS[mo-1].slice(0,3)} ${da}, ${y}`;
+
+    for (const [prov, info] of Object.entries(day)) {
+      if (prov === 'Trans')  { tT += info.total; tC += info.count; }
+      if (prov === 'Ethos')  { eT += info.total; eC += info.count; }
+      if (prov === 'Mutual') { mT += info.total; mC += info.count; }
+      if (prov === 'Balt')   { bT += info.total; bC += info.count; }
+      const color = prov==='Trans'?'var(--trans-text)':prov==='Ethos'?'var(--ethos-text)':prov==='Mutual'?'var(--mutual-text)':'var(--balt-text)';
+      const label = prov==='Trans'?'Transamerica':prov==='Ethos'?'Ethos/Trustage':prov==='Mutual'?'Mutual of Omaha':'Baltimore Life';
+      rows.push({dateLabel, label, color, count: info.count, total: info.total});
+    }
+  }
+
+  const grandTotal = tT + eT + mT + bT;
+  const grandCount = tC + eC + mC + bC;
+
+  // Range label
+  document.getElementById('range-label').textContent =
+    `${fmtDate(start)} → ${fmtDate(end)}  ·  ${grandCount} policies  ·  ${fmt(grandTotal)} total`;
+
+  // Summary cards
+  const cardData = [
+    {label:'Total', val:grandTotal, count:grandCount, color:'#a5b4fc', border:'var(--accent)'},
+    {label:'Transamerica', val:tT, count:tC, color:'var(--trans-text)', border:'var(--trans)'},
+    {label:'Ethos/Trustage', val:eT, count:eC, color:'var(--ethos-text)', border:'var(--ethos)'},
+    {label:'Mutual of Omaha', val:mT, count:mC, color:'var(--mutual-text)', border:'var(--mutual)'},
+    {label:'Baltimore Life', val:bT, count:bC, color:'var(--balt-text)', border:'var(--balt)'},
+  ];
+  document.getElementById('range-cards').innerHTML = cardData.map(c => `
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid ${c.border};border-radius:var(--border-radius-md);padding:12px">
+      <div style="font-size:11px;color:${c.color};margin-bottom:4px">${c.label}</div>
+      <div style="font-size:16px;font-weight:600;color:${c.color}">${fmt(c.val)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.count} polic${c.count!==1?'ies':'y'}</div>
+    </div>`).join('');
+
+  // Table rows
+  document.getElementById('range-tbody').innerHTML = rows.map(r => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:7px 10px;color:var(--text);font-size:12px">${r.dateLabel}</td>
+      <td style="padding:7px 10px;font-size:12px"><span style="color:${r.color}">${r.label}</span></td>
+      <td style="padding:7px 10px;font-size:12px;color:var(--muted)">${r.count}</td>
+      <td style="padding:7px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:500;color:var(--text)">${fmt(r.total)}</td>
+    </tr>`).join('');
+
+  // Footer total
+  document.getElementById('range-tfoot').innerHTML = `
+    <tr style="border-top:1px solid var(--border2)">
+      <td colspan="2" style="padding:8px 10px;font-size:12px;font-weight:600;color:var(--text)">Total</td>
+      <td style="padding:8px 10px;font-size:12px;font-weight:600;color:var(--text)">${grandCount}</td>
+      <td style="padding:8px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:#a5b4fc">${fmt(grandTotal)}</td>
+    </tr>`;
+
+  document.getElementById('range-results').style.display = 'block';
 }
 
 // ─── BOOT ────────────────────────────────────────
