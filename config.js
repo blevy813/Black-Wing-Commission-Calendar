@@ -13,6 +13,8 @@ const CONFIG = {
   TRANS_DAYS:   7,
   ETHOS_DAYS:   13,
   MUTUAL_DAYS:  10,
+  // Baltimore Life: 7 days after effective date, then next Tuesday or Friday
+  BALT_DAYS:    7,
 
   // Auto-refresh interval in milliseconds (default: 5 min)
   REFRESH_INTERVAL: 5 * 60 * 1000,

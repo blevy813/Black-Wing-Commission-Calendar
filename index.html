@@ -32,6 +32,11 @@
     --mutual-bdr: rgba(167,139,250,0.3);
     --mutual-text:#c4b5fd;
 
+    --balt:       #f472b6;
+    --balt-bg:    rgba(244,114,182,0.12);
+    --balt-bdr:   rgba(244,114,182,0.3);
+    --balt-text:  #f9a8d4;
+
     --gold:      #e8c84a;
     --gold-bg:   rgba(232,200,74,0.12);
 
@@ -314,6 +319,7 @@
   .pill-trans  { background: var(--trans-bg);  color: var(--trans-text);  border: 1px solid var(--trans-bdr);  }
   .pill-ethos  { background: var(--ethos-bg);  color: var(--ethos-text);  border: 1px solid var(--ethos-bdr);  }
   .pill-mutual { background: var(--mutual-bg); color: var(--mutual-text); border: 1px solid var(--mutual-bdr); }
+  .pill-balt   { background: var(--balt-bg);   color: var(--balt-text);   border: 1px solid var(--balt-bdr);   }
 
   /* ── DETAIL PANEL ── */
   .detail-panel {
@@ -376,16 +382,19 @@
   .detail-card.trans    { background: var(--trans-bg);   border-color: var(--trans-bdr);   }
   .detail-card.ethos    { background: var(--ethos-bg);   border-color: var(--ethos-bdr);   }
   .detail-card.mutual   { background: var(--mutual-bg);  border-color: var(--mutual-bdr);  }
+  .detail-card.balt     { background: var(--balt-bg);    border-color: var(--balt-bdr);    }
   .detail-card.combined { background: var(--surface2);   border-color: var(--border2);     }
   .dc-label { font-size: 11px; font-weight: 500; margin-bottom: 4px; }
   .dc-label.trans    { color: var(--trans-text);   }
   .dc-label.ethos    { color: var(--ethos-text);   }
   .dc-label.mutual   { color: var(--mutual-text);  }
+  .dc-label.balt     { color: var(--balt-text);    }
   .dc-label.combined { color: var(--muted);        }
   .dc-amount { font-size: 18px; font-weight: 600; font-family: 'DM Mono', monospace; }
   .dc-amount.trans    { color: var(--trans-text);  }
   .dc-amount.ethos    { color: var(--ethos-text);  }
   .dc-amount.mutual   { color: var(--mutual-text); }
+  .dc-amount.balt     { color: var(--balt-text);   }
   .dc-amount.combined { color: var(--text);        }
   .dc-count { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
@@ -437,6 +446,7 @@
   .badge-trans  { background: var(--trans-bg);   color: var(--trans-text);   border: 1px solid var(--trans-bdr);   }
   .badge-ethos  { background: var(--ethos-bg);   color: var(--ethos-text);   border: 1px solid var(--ethos-bdr);   }
   .badge-mutual { background: var(--mutual-bg);  color: var(--mutual-text);  border: 1px solid var(--mutual-bdr);  }
+  .badge-balt   { background: var(--balt-bg);    color: var(--balt-text);    border: 1px solid var(--balt-bdr);    }
 
   /* ── LOADING / ERROR STATES ── */
   .state-overlay {
@@ -586,6 +596,7 @@ function normalizeProvider(val) {
   if (['ethos','ethis','trustage','giwl'].some(k => s.includes(k))) return 'Ethos';
   if (s.includes('trans')) return 'Trans';
   if (['moo','mutual'].some(k => s.includes(k))) return 'Mutual';
+  if (s.includes('baltimore')) return 'Balt';
   return null;
 }
 
@@ -607,7 +618,18 @@ function addDays(date, n) {
   return d;
 }
 
-// ─── DATA PROCESSING ──────────────────────────────
+// For Baltimore Life: find next Tuesday (2) or Friday (5) on or after date
+function toNextTueFri(date) {
+  const d = new Date(date);
+  const dow = d.getDay();
+  if (dow === 2 || dow === 5) return d; // already Tue or Fri
+  // Days until next Tue or Fri
+  const daysToTue = (2 - dow + 7) % 7;
+  const daysToFri = (5 - dow + 7) % 7;
+  const jump = Math.min(daysToTue || 7, daysToFri || 7);
+  d.setDate(d.getDate() + jump);
+  return d;
+}
 function processRows(rows) {
   const C = CONFIG.COLUMNS;
   const paymentMap = {};
@@ -624,9 +646,15 @@ function processRows(rows) {
 
     const days = provider === 'Trans'   ? CONFIG.TRANS_DAYS
                : provider === 'Ethos'   ? CONFIG.ETHOS_DAYS
-               : CONFIG.MUTUAL_DAYS;
+               : provider === 'Mutual'  ? CONFIG.MUTUAL_DAYS
+               : CONFIG.BALT_DAYS;
 
-    const payDate = toBusinessDay(addDays(effDate, days));
+    let payDate;
+    if (provider === 'Balt') {
+      payDate = toNextTueFri(addDays(effDate, days));
+    } else {
+      payDate = toBusinessDay(addDays(effDate, days));
+    }
     const key = dateKey(payDate);
 
     if (!paymentMap[key]) paymentMap[key] = {};
@@ -707,20 +735,21 @@ function initCalendar() {
 
 // ─── RENDER ───────────────────────────────────────
 function renderSummary() {
-  let tTotal = 0, eTotal = 0, mTotal = 0, tCount = 0, eCount = 0, mCount = 0;
+  let tTotal = 0, eTotal = 0, mTotal = 0, bTotal = 0, tCount = 0, eCount = 0, mCount = 0, bCount = 0;
   for (const day of Object.values(paymentData)) {
     if (day.Trans)  { tTotal += day.Trans.total;  tCount += day.Trans.count;  }
     if (day.Ethos)  { eTotal += day.Ethos.total;  eCount += day.Ethos.count;  }
     if (day.Mutual) { mTotal += day.Mutual.total; mCount += day.Mutual.count; }
+    if (day.Balt)   { bTotal += day.Balt.total;   bCount += day.Balt.count;   }
   }
-  const total = tTotal + eTotal + mTotal;
+  const total = tTotal + eTotal + mTotal + bTotal;
 
   return `
-    <div class="summary-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="summary-grid" style="grid-template-columns:repeat(5,1fr)">
       <div class="card total">
         <div class="card-label">Total AP projected</div>
         <div class="card-value">${fmt(total)}</div>
-        <div class="card-sub">${tCount + eCount + mCount} policies · all carriers</div>
+        <div class="card-sub">${tCount + eCount + mCount + bCount} policies · all carriers</div>
       </div>
       <div class="card trans">
         <div class="card-label">Transamerica</div>
@@ -736,6 +765,11 @@ function renderSummary() {
         <div class="card-label">Mutual of Omaha</div>
         <div class="card-value">${fmt(mTotal)}</div>
         <div class="card-sub">${mCount} polic${mCount !== 1 ? 'ies' : 'y'} · eff +10 days</div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--balt)">
+        <div class="card-label" style="color:var(--balt-text)">Baltimore Life</div>
+        <div class="card-value" style="color:var(--balt-text)">${fmt(bTotal)}</div>
+        <div class="card-sub">${bCount} polic${bCount !== 1 ? 'ies' : 'y'} · eff +7 → Tue/Fri</div>
       </div>
     </div>`;
 }
@@ -759,6 +793,7 @@ function renderCalendar() {
       <div class="legend-item"><div class="legend-dot" style="background:var(--trans)"></div>Transamerica (eff +7 days)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--ethos)"></div>Ethos / Trustage (eff +13 days)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--mutual)"></div>Mutual of Omaha (eff +10 days)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--balt)"></div>Baltimore Life (eff +7 → Tue/Fri)</div>
     </div>
     <div class="day-headers">
       ${DAYS_SHORT.map(d => `<div class="day-header">${d}</div>`).join('')}
@@ -816,6 +851,12 @@ function renderCalendar() {
           : `M: ${fmt(dayData.Mutual.total)}`;
         innerHtml += `<div class="pill pill-mutual">${lbl}</div>`;
       }
+      if (dayData.Balt) {
+        const lbl = dayData.Balt.count > 1
+          ? `B: ${fmt(dayData.Balt.total)} (${dayData.Balt.count})`
+          : `B: ${fmt(dayData.Balt.total)}`;
+        innerHtml += `<div class="pill pill-balt">${lbl}</div>`;
+      }
     }
 
     weekHtml += `<div class="${cls}" ${onclick}>${innerHtml}</div>`;
@@ -853,49 +894,37 @@ function showDetail(key, day) {
   const tTotal = d.Trans  ? d.Trans.total  : 0;
   const eTotal = d.Ethos  ? d.Ethos.total  : 0;
   const mTotal = d.Mutual ? d.Mutual.total : 0;
-  const combined = tTotal + eTotal + mTotal;
-  const isShifted = (d.Trans && d.Trans.shifted) || (d.Ethos && d.Ethos.shifted) || (d.Mutual && d.Mutual.shifted);
+  const bTotal = d.Balt   ? d.Balt.total   : 0;
+  const combined = tTotal + eTotal + mTotal + bTotal;
+  const isShifted = (d.Trans && d.Trans.shifted) || (d.Ethos && d.Ethos.shifted) || (d.Mutual && d.Mutual.shifted) || (d.Balt && d.Balt.shifted);
 
-  $('detail-subtitle').textContent = `${(d.Trans ? d.Trans.count : 0) + (d.Ethos ? d.Ethos.count : 0) + (d.Mutual ? d.Mutual.count : 0)} policies · ${fmt(combined)} total`;
+  $('detail-subtitle').textContent = `${(d.Trans ? d.Trans.count : 0) + (d.Ethos ? d.Ethos.count : 0) + (d.Mutual ? d.Mutual.count : 0) + (d.Balt ? d.Balt.count : 0)} policies · ${fmt(combined)} total`;
   $('shifted-banner').style.display = isShifted ? 'flex' : 'none';
 
   let cards = '';
   if (d.Trans) {
-    cards += `<div class="detail-card trans">
-      <div class="dc-label trans">Transamerica</div>
-      <div class="dc-amount trans">${fmt(tTotal)}</div>
-      <div class="dc-count">${d.Trans.count} polic${d.Trans.count > 1 ? 'ies' : 'y'}</div>
-    </div>`;
+    cards += `<div class="detail-card trans"><div class="dc-label trans">Transamerica</div><div class="dc-amount trans">${fmt(tTotal)}</div><div class="dc-count">${d.Trans.count} polic${d.Trans.count > 1 ? 'ies' : 'y'}</div></div>`;
   }
   if (d.Ethos) {
-    cards += `<div class="detail-card ethos">
-      <div class="dc-label ethos">Ethos / Trustage</div>
-      <div class="dc-amount ethos">${fmt(eTotal)}</div>
-      <div class="dc-count">${d.Ethos.count} polic${d.Ethos.count > 1 ? 'ies' : 'y'}</div>
-    </div>`;
+    cards += `<div class="detail-card ethos"><div class="dc-label ethos">Ethos / Trustage</div><div class="dc-amount ethos">${fmt(eTotal)}</div><div class="dc-count">${d.Ethos.count} polic${d.Ethos.count > 1 ? 'ies' : 'y'}</div></div>`;
   }
   if (d.Mutual) {
-    cards += `<div class="detail-card mutual">
-      <div class="dc-label mutual">Mutual of Omaha</div>
-      <div class="dc-amount mutual">${fmt(mTotal)}</div>
-      <div class="dc-count">${d.Mutual.count} polic${d.Mutual.count > 1 ? 'ies' : 'y'}</div>
-    </div>`;
+    cards += `<div class="detail-card mutual"><div class="dc-label mutual">Mutual of Omaha</div><div class="dc-amount mutual">${fmt(mTotal)}</div><div class="dc-count">${d.Mutual.count} polic${d.Mutual.count > 1 ? 'ies' : 'y'}</div></div>`;
   }
-  const numCarriers = (d.Trans ? 1 : 0) + (d.Ethos ? 1 : 0) + (d.Mutual ? 1 : 0);
+  if (d.Balt) {
+    cards += `<div class="detail-card balt"><div class="dc-label balt">Baltimore Life</div><div class="dc-amount balt">${fmt(bTotal)}</div><div class="dc-count">${d.Balt.count} polic${d.Balt.count > 1 ? 'ies' : 'y'}</div></div>`;
+  }
+  const numCarriers = (d.Trans?1:0)+(d.Ethos?1:0)+(d.Mutual?1:0)+(d.Balt?1:0);
   if (numCarriers > 1) {
-    cards += `<div class="detail-card combined">
-      <div class="dc-label combined">Combined</div>
-      <div class="dc-amount combined">${fmt(combined)}</div>
-      <div class="dc-count">all policies</div>
-    </div>`;
+    cards += `<div class="detail-card combined"><div class="dc-label combined">Combined</div><div class="dc-amount combined">${fmt(combined)}</div><div class="dc-count">all policies</div></div>`;
   }
   $('detail-cards').innerHTML = cards;
 
   let rows = '';
   const renderPolicies = (policies, prov) => {
     for (const p of policies) {
-      const badgeCls = prov === 'Trans' ? 'badge-trans' : prov === 'Ethos' ? 'badge-ethos' : 'badge-mutual';
-      const badgeLbl = prov === 'Trans' ? 'Trans' : prov === 'Ethos' ? 'Ethos' : 'Mutual';
+      const badgeCls = prov === 'Trans' ? 'badge-trans' : prov === 'Ethos' ? 'badge-ethos' : prov === 'Mutual' ? 'badge-mutual' : 'badge-balt';
+      const badgeLbl = prov === 'Trans' ? 'Trans' : prov === 'Ethos' ? 'Ethos' : prov === 'Mutual' ? 'Mutual' : 'Baltimore';
       rows += `<tr>
         <td>${p.agent}</td>
         <td class="mono">${p.policy}</td>
@@ -907,6 +936,7 @@ function showDetail(key, day) {
   if (d.Trans)  renderPolicies(d.Trans.policies,  'Trans');
   if (d.Ethos)  renderPolicies(d.Ethos.policies,  'Ethos');
   if (d.Mutual) renderPolicies(d.Mutual.policies, 'Mutual');
+  if (d.Balt)   renderPolicies(d.Balt.policies,   'Balt');
   $('detail-tbody').innerHTML = rows;
 
   const panel = $('detail-panel');
