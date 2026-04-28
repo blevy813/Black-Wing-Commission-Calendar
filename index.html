@@ -634,15 +634,14 @@ function addDays(date, n) {
   return d;
 }
 
-// For Baltimore Life: find next Tuesday (2) or Friday (5) on or after date
-function toNextTueFri(date) {
+// For Baltimore Life: find next Wednesday (3) or Saturday (6) on or after date
+function toNextWedSat(date) {
   const d = new Date(date);
   const dow = d.getDay();
-  if (dow === 2 || dow === 5) return d; // already Tue or Fri
-  // Days until next Tue or Fri
-  const daysToTue = (2 - dow + 7) % 7;
-  const daysToFri = (5 - dow + 7) % 7;
-  const jump = Math.min(daysToTue || 7, daysToFri || 7);
+  if (dow === 3 || dow === 6) return d; // already Wed or Sat
+  const daysToWed = (3 - dow + 7) % 7;
+  const daysToSat = (6 - dow + 7) % 7;
+  const jump = Math.min(daysToWed || 7, daysToSat || 7);
   d.setDate(d.getDate() + jump);
   return d;
 }
@@ -667,7 +666,7 @@ function processRows(rows) {
 
     let payDate;
     if (provider === 'Balt') {
-      payDate = toNextTueFri(addDays(effDate, days));
+      payDate = toNextWedSat(addDays(effDate, days));
     } else {
       payDate = toBusinessDay(addDays(effDate, days));
     }
@@ -785,7 +784,7 @@ function renderSummary() {
       <div class="card" style="border-left:3px solid var(--balt)">
         <div class="card-label" style="color:var(--balt-text)">Baltimore Life</div>
         <div class="card-value" style="color:var(--balt-text)">${fmt(bTotal)}</div>
-        <div class="card-sub">${bCount} polic${bCount !== 1 ? 'ies' : 'y'} · eff +7 → Tue/Fri</div>
+        <div class="card-sub">${bCount} polic${bCount !== 1 ? 'ies' : 'y'} · eff +7 → Wed/Sat</div>
       </div>
     </div>`;
 }
@@ -850,7 +849,7 @@ function renderCalendar() {
       <div class="legend-item"><div class="legend-dot" style="background:var(--trans)"></div>Transamerica (eff +7 days)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--ethos)"></div>Ethos / Trustage (eff +13 days)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--mutual)"></div>Mutual of Omaha (eff +10 days)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--balt)"></div>Baltimore Life (eff +7 → Tue/Fri)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--balt)"></div>Baltimore Life (eff +7 → Wed/Sat)</div>
     </div>
     <div class="day-headers">
       ${DAYS_SHORT.map(d => `<div class="day-header">${d}</div>`).join('')}
