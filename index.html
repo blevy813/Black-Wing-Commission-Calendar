@@ -122,7 +122,7 @@
   #last-updated { font-size: 11px; color: var(--muted); }
 
   /* ── MAIN LAYOUT ── */
-  main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 60px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 0 0 60px; }
 
   /* ── SUMMARY CARDS ── */
   .summary-grid {
@@ -506,6 +506,27 @@
   .monthly-table tr:last-child td { border-bottom: none; }
   .monthly-table tr.total-row td { border-top: 1px solid var(--border2); font-weight: 600; color: #a5b4fc; padding-top: 10px; }
   .monthly-table tr.total-row td:first-child { color: #a5b4fc; }
+  /* ── MAIN TABS ── */
+  .main-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+  .main-tab:hover { color: var(--text); }
+  .main-tab.active {
+    color: var(--text);
+    border-bottom: 2px solid var(--accent);
+    font-weight: 500;
+  }
+
   .state-overlay {
     text-align: center;
     padding: 80px 20px;
@@ -578,6 +599,11 @@
 </header>
 
 <main>
+  <div style="display:flex;gap:6px;padding:20px 24px 0;border-bottom:1px solid var(--border);margin-bottom:0" id="main-tabs">
+    <button class="main-tab active" onclick="switchMainTab('ap')" id="tab-ap">Effective AP</button>
+    <button class="main-tab" onclick="switchMainTab('payouts')" id="tab-payouts">Effective Payouts</button>
+    <button class="main-tab" onclick="switchMainTab('renewals')" id="tab-renewals">Effective Renewals</button>
+  </div>
   <div id="app-content">
     <div class="state-overlay">
       <div class="spinner"></div>
@@ -687,19 +713,74 @@ function toNextWedSat(date) {
   d.setDate(d.getDate() + jump);
   return d;
 }
+function calcAge(dobStr) {
+  if (!dobStr) return null;
+  try {
+    const dob = new Date(dobStr);
+    if (isNaN(dob)) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    return age;
+  } catch { return null; }
+}
+
+function getCarrierRate(provider, productRaw, dobStr) {
+  const p = (productRaw || '').toLowerCase().trim();
+  const age = calcAge(dobStr);
+  let rate = 1.0, defaulted = false, warning = '';
+
+  if (provider === 'Trans') {
+    if (p.includes('graded'))                        { rate = 0.98; }
+    else if (p.includes('iul'))                      { rate = 1.25; }
+    else                                             { rate = 1.35; if (!p) { defaulted = true; warning = 'No product — defaulted FE Express 135%'; } }
+  } else if (provider === 'Ethos') {
+    if (p.includes('giwl'))                          { rate = 0.28; }
+    else if (age === null)                            { rate = 0.67; defaulted = true; warning = 'No DOB — defaulted 67%'; }
+    else if (age >= 60 && age <= 80)                  { rate = 1.18; }
+    else                                              { rate = 0.67; }
+  } else if (provider === 'Mutual') {
+    if (p.includes('iul'))                            { rate = 1.30; }
+    else if (p.includes('child') || p.includes('wl')) { rate = 1.02; }
+    else if (p.includes('graded'))                    { rate = 0.85; }
+    else if (p.includes('level')) {
+      if (age === null)                               { rate = 1.25; defaulted = true; warning = 'No DOB — defaulted 125%'; }
+      else if (age >= 81)                             { rate = 0.85; }
+      else                                            { rate = 1.25; }
+    } else                                            { rate = 1.25; defaulted = true; warning = 'No product — defaulted 125%'; }
+  } else if (provider === 'Balt')                     { rate = 1.35; }
+  else if (provider === 'Core') {
+    if (p.includes('giwl'))                           { rate = 0.80; }
+    else if (p.includes('max'))                       { rate = 1.32; }
+    else if (p.includes('siwl'))                      { rate = 0.92; }
+    else                                              { rate = 0.80; defaulted = true; warning = 'No product — defaulted GIWL 80%'; }
+  }
+  return { rate, defaulted, warning };
+}
+
+function addMonthsToDate(date, months) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return toBusinessDay(d);
+}
+
 function processRows(rows) {
   const C = CONFIG.COLUMNS;
-  const paymentMap = {};
+  const apMap = {}, payoutsMap = {}, renewalsMap = {};
 
   for (const row of rows) {
     const provider = normalizeProvider(row[C.provider]);
     if (!provider) continue;
-
     const effDate = parseDate(row[C.effectiveDate]);
     if (!effDate) continue;
-
     const premium = cleanPremium(row[C.annualPremium]);
     if (premium <= 0) continue;
+
+    const productRaw = (row[C.productType] || '').trim();
+    const dobRaw     = (row[C.dateOfBirth]  || '').trim();
+    const agent      = row[C.agentName]     || '—';
+    const polNum     = row[C.policyNumber]  || '—';
 
     const days = provider === 'Trans'  ? CONFIG.TRANS_DAYS
                : provider === 'Ethos'  ? CONFIG.ETHOS_DAYS
@@ -708,34 +789,46 @@ function processRows(rows) {
                : CONFIG.BALT_DAYS;
 
     let payDate;
-    if (provider === 'Balt') {
-      payDate = toNextWedSat(addDays(effDate, days));
-    } else {
-      payDate = toBusinessDay(addDays(effDate, days));
-    }
-    const key = dateKey(payDate);
+    if (provider === 'Balt') payDate = toNextWedSat(addDays(effDate, days));
+    else payDate = toBusinessDay(addDays(effDate, days));
+    const payKey = dateKey(payDate);
 
-    if (!paymentMap[key]) paymentMap[key] = {};
-    if (!paymentMap[key][provider]) {
-      paymentMap[key][provider] = { total: 0, count: 0, policies: [] };
-    }
+    // AP map
+    if (!apMap[payKey]) apMap[payKey] = {};
+    if (!apMap[payKey][provider]) apMap[payKey][provider] = { total:0, count:0, policies:[] };
+    apMap[payKey][provider].total += premium;
+    apMap[payKey][provider].count++;
+    apMap[payKey][provider].policies.push({ agent, policy:polNum, premium, provider });
 
-    paymentMap[key][provider].total += premium;
-    paymentMap[key][provider].count++;
-    paymentMap[key][provider].policies.push({
-      agent:  row[C.agentName]    || '—',
-      policy: row[C.policyNumber] || '—',
-      premium,
-      provider,
-    });
+    // Commission
+    const { rate, defaulted, warning } = getCarrierRate(provider, productRaw, dobRaw);
+    const advComm = Math.round(premium * rate * CONFIG.ADVANCE_RATE * CONFIG.CHARGEBACK * 100) / 100;
+    const renComm = Math.round(premium * rate * CONFIG.RENEWAL_RATE * CONFIG.CHARGEBACK * 100) / 100;
+    const polDetail = { agent, policy:polNum, premium, provider, productRaw, rate, defaulted, warning };
+
+    // Payouts map
+    if (!payoutsMap[payKey]) payoutsMap[payKey] = {};
+    if (!payoutsMap[payKey][provider]) payoutsMap[payKey][provider] = { total:0, count:0, policies:[] };
+    payoutsMap[payKey][provider].total += advComm;
+    payoutsMap[payKey][provider].count++;
+    payoutsMap[payKey][provider].policies.push({ ...polDetail, commission:advComm, type:'advance' });
+
+    // Renewals map
+    const renewDate = addMonthsToDate(payDate, CONFIG.RENEWAL_MONTHS);
+    const renewKey  = dateKey(renewDate);
+    if (!renewalsMap[renewKey]) renewalsMap[renewKey] = {};
+    if (!renewalsMap[renewKey][provider]) renewalsMap[renewKey][provider] = { total:0, count:0, policies:[] };
+    renewalsMap[renewKey][provider].total += renComm;
+    renewalsMap[renewKey][provider].count++;
+    renewalsMap[renewKey][provider].policies.push({ ...polDetail, commission:renComm, type:'renewal' });
   }
 
-  for (const day of Object.values(paymentMap)) {
-    for (const p of Object.values(day)) {
-      p.total = Math.round(p.total * 100) / 100;
+  for (const map of [apMap, payoutsMap, renewalsMap]) {
+    for (const day of Object.values(map)) {
+      for (const p of Object.values(day)) p.total = Math.round(p.total * 100) / 100;
     }
   }
-  return paymentMap;
+  return { apMap, payoutsMap, renewalsMap };
 }
 
 // ─── GOOGLE SHEET FETCH ───────────────────────────
@@ -783,7 +876,10 @@ function splitCSVLine(line) {
 }
 
 // ─── CALENDAR STATE ───────────────────────────────
-let calYear, calMonth, paymentData = {};
+let calYear, calMonth;
+let paymentData = {};   // active map (changes with tab)
+let apData = {}, payoutsData = {}, renewalsData = {};
+let currentMainTab = 'ap';
 
 function initCalendar() {
   const now = new Date();
@@ -802,37 +898,41 @@ function renderSummary() {
     if (day.Core)   { cT += day.Core.total;   cC += day.Core.count;   }
   }
   const total = tT+eT+mT+bT+cT;
+  const isAP = currentMainTab === 'ap';
+  const isRen = currentMainTab === 'renewals';
+  const totalLabel = isAP ? 'Total AP projected' : isRen ? 'Total renewals (+10 mo)' : 'Total advance commissions';
+  const subLabel = (days) => isAP ? `eff +${days} days` : isRen ? `AP × rate × 0.25 × 0.80` : `AP × rate × 0.75 × 0.80`;
   return `
-    <div class="summary-grid" style="grid-template-columns:repeat(6,1fr)">
+    <div class="summary-grid" style="grid-template-columns:repeat(6,1fr);margin-bottom:20px">
       <div class="card total">
-        <div class="card-label">Total AP projected</div>
+        <div class="card-label">${totalLabel}</div>
         <div class="card-value">${fmt(total)}</div>
         <div class="card-sub">${tC+eC+mC+bC+cC} policies · all carriers</div>
       </div>
       <div class="card trans">
         <div class="card-label">Transamerica</div>
         <div class="card-value">${fmt(tT)}</div>
-        <div class="card-sub">${tC} polic${tC!==1?'ies':'y'} · eff +5 days</div>
+        <div class="card-sub">${tC} polic${tC!==1?'ies':'y'} · ${isAP?'eff +5 days':'135% base rate'}</div>
       </div>
       <div class="card ethos">
         <div class="card-label">Ethos / Trustage</div>
         <div class="card-value">${fmt(eT)}</div>
-        <div class="card-sub">${eC} polic${eC!==1?'ies':'y'} · eff +9 days</div>
+        <div class="card-sub">${eC} polic${eC!==1?'ies':'y'} · ${isAP?'eff +9 days':'67–118% by age'}</div>
       </div>
       <div class="card mutual">
         <div class="card-label">Mutual of Omaha</div>
         <div class="card-value">${fmt(mT)}</div>
-        <div class="card-sub">${mC} polic${mC!==1?'ies':'y'} · eff +8 days</div>
+        <div class="card-sub">${mC} polic${mC!==1?'ies':'y'} · ${isAP?'eff +8 days':'85–130% by product'}</div>
       </div>
       <div class="card" style="border-left:3px solid var(--balt)">
         <div class="card-label" style="color:var(--balt-text)">Baltimore Life</div>
         <div class="card-value" style="color:var(--balt-text)">${fmt(bT)}</div>
-        <div class="card-sub">${bC} polic${bC!==1?'ies':'y'} · eff +7 → Wed/Sat</div>
+        <div class="card-sub">${bC} polic${bC!==1?'ies':'y'} · ${isAP?'eff +7 → Wed/Sat':'135% iProvide'}</div>
       </div>
       <div class="card" style="border-left:3px solid var(--core)">
         <div class="card-label" style="color:var(--core-text)">Corebridge</div>
         <div class="card-value" style="color:var(--core-text)">${fmt(cT)}</div>
-        <div class="card-sub">${cC} polic${cC!==1?'ies':'y'} · eff +14 days</div>
+        <div class="card-sub">${cC} polic${cC!==1?'ies':'y'} · ${isAP?'eff +14 days':'80–132% by product'}</div>
       </div>
     </div>`;
 }
@@ -852,6 +952,11 @@ function renderMonthly() {
   const sorted = Object.keys(months).sort();
   if (!sorted.length) return '';
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const isAP = currentMainTab === 'ap';
+  const isRen = currentMainTab === 'renewals';
+  const heading = isAP ? 'Monthly Breakdown — Annual Premiums by Carrier'
+                : isRen ? 'Monthly Breakdown — Renewal Commissions by Carrier (+10 months)'
+                : 'Monthly Breakdown — Advance Commissions by Carrier';
   let gT=0,gE=0,gM=0,gB=0,gC=0, rows='';
   for (const mk of sorted) {
     const [y,m] = mk.split('-');
@@ -870,7 +975,7 @@ function renderMonthly() {
   }
   return `
     <div class="monthly-section">
-      <h3>Monthly Breakdown by Carrier</h3>
+      <h3>${heading}</h3>
       <div style="overflow-x:auto">
         <table class="monthly-table">
           <thead><tr>
@@ -1047,8 +1152,23 @@ function renderCalendar() {
   return html;
 }
 
+function switchMainTab(tab) {
+  currentMainTab = tab;
+  paymentData = tab === 'ap' ? apData : tab === 'payouts' ? payoutsData : renewalsData;
+  ['ap','payouts','renewals'].forEach(t => {
+    $('tab-'+t).classList.toggle('active', t === tab);
+  });
+  $('detail-panel').classList.remove('open');
+  renderApp();
+}
+
 function renderApp() {
-  $('app-content').innerHTML = renderSummary() + renderMonthly() + renderCalendar();
+  const tabLabel = currentMainTab === 'ap' ? 'Annual Premium'
+                 : currentMainTab === 'payouts' ? 'Advance Commission'
+                 : 'Renewal Commission (+10 mo)';
+  $('app-content').innerHTML = `<div style="padding:24px 24px 0">${renderSummary()}</div>
+    <div style="padding:0 24px">${renderMonthly()}</div>
+    <div style="padding:0 24px">${renderCalendar()}</div>`;
 }
 
 // ─── DETAIL PANEL ────────────────────────────────
@@ -1091,17 +1211,37 @@ function showDetail(key, day) {
   }
   $('detail-cards').innerHTML = cards;
 
+  const isAP  = currentMainTab === 'ap';
+  const isRen = currentMainTab === 'renewals';
+
+  // Update table headers based on tab
+  const thead = document.querySelector('#detail-panel thead tr');
+  if (thead) {
+    thead.innerHTML = isAP
+      ? `<th>Agent</th><th>Policy #</th><th>Carrier</th><th style="text-align:right">Annual Premium</th>`
+      : `<th>Agent</th><th>Policy #</th><th>Product</th><th>Rate</th><th style="text-align:right">Annual Premium</th><th style="text-align:right">${isRen?'Renewal':'Advance'} Commission</th>`;
+  }
+
   let rows = '';
   const renderPolicies = (policies, prov) => {
+    const badgeCls = prov==='Trans'?'badge-trans':prov==='Ethos'?'badge-ethos':prov==='Mutual'?'badge-mutual':prov==='Balt'?'badge-balt':'badge-core';
+    const badgeLbl = prov==='Trans'?'Trans':prov==='Ethos'?'Ethos':prov==='Mutual'?'Mutual':prov==='Balt'?'Baltimore':'Corebridge';
     for (const p of policies) {
-      const badgeCls = prov === 'Trans' ? 'badge-trans' : prov === 'Ethos' ? 'badge-ethos' : prov === 'Mutual' ? 'badge-mutual' : prov === 'Balt' ? 'badge-balt' : 'badge-core';
-      const badgeLbl = prov === 'Trans' ? 'Trans' : prov === 'Ethos' ? 'Ethos' : prov === 'Mutual' ? 'Mutual' : prov === 'Balt' ? 'Baltimore' : 'Corebridge';
-      rows += `<tr>
-        <td>${p.agent}</td>
-        <td class="mono">${p.policy}</td>
-        <td><span class="badge ${badgeCls}">${badgeLbl}</span></td>
-        <td class="amount">${fmt(p.premium)}</td>
-      </tr>`;
+      if (isAP) {
+        rows += `<tr><td>${p.agent}</td><td class="mono">${p.policy}</td><td><span class="badge ${badgeCls}">${badgeLbl}</span></td><td class="amount">${fmt(p.premium)}</td></tr>`;
+      } else {
+        const rateStr = p.rate ? (p.rate*100).toFixed(0)+'%' : '—';
+        const warnIcon = p.defaulted ? ` <span style="color:#fbbf24;font-size:10px" title="${p.warning||''}">⚠</span>` : '';
+        const commColor = isRen ? '#a5b4fc' : '#4ade80';
+        rows += `<tr>
+          <td>${p.agent}</td>
+          <td class="mono">${p.policy}</td>
+          <td>${p.productRaw||'—'}${warnIcon}</td>
+          <td style="color:var(--muted);font-size:11px">${rateStr}</td>
+          <td class="amount" style="color:var(--muted)">${fmt(p.premium)}</td>
+          <td class="amount" style="color:${commColor};font-weight:500">${fmt(p.commission)}</td>
+        </tr>`;
+      }
     }
   };
   if (d.Trans)  renderPolicies(d.Trans.policies,  'Trans');
@@ -1112,7 +1252,6 @@ function showDetail(key, day) {
   $('detail-tbody').innerHTML = rows;
 
   const panel = $('detail-panel');
-  // Append to main if not already there
   if (!panel.parentElement.classList.contains('main-inner')) {
     document.querySelector('main').appendChild(panel);
   }
@@ -1324,7 +1463,13 @@ async function load() {
     return;
   }
 
-  paymentData = processRows(result.rows);
+  const result2 = processRows(result.rows);
+  apData       = result2.apMap;
+  payoutsData  = result2.payoutsMap;
+  renewalsData = result2.renewalsMap;
+  paymentData  = apData; // default tab is AP
+  currentMainTab = 'ap';
+  ['ap','payouts','renewals'].forEach(t => $('tab-'+t).classList.toggle('active', t==='ap'));
   setStatus('live', 'Live');
   setLastUpdated();
   renderApp();

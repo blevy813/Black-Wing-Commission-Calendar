@@ -16,6 +16,12 @@ const CONFIG = {
   BALT_DAYS:       7,   // then next Wed or Sat
   COREBRIDGE_DAYS: 14,
 
+  // Advance/renewal multipliers
+  ADVANCE_RATE:  0.75,
+  RENEWAL_RATE:  0.25,
+  CHARGEBACK:    0.80,
+  RENEWAL_MONTHS: 10,
+
   // Auto-refresh interval in milliseconds (default: 5 min)
   REFRESH_INTERVAL: 5 * 60 * 1000,
 
@@ -27,5 +33,7 @@ const CONFIG = {
     agentName:     "Agent Name",
     policyNumber:  "Policy Number",
     status:        "Status",
+    productType:   "Product Type",
+    dateOfBirth:   "Date of Birth",
   }
 };
