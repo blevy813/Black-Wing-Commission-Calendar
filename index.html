@@ -473,6 +473,40 @@
   .badge-balt   { background: var(--balt-bg);    color: var(--balt-text);    border: 1px solid var(--balt-bdr);    }
   .badge-core   { background: var(--core-bg);    color: var(--core-text);    border: 1px solid var(--core-bdr);    }
 
+  /* ── TOOLTIPS ── */
+  .tip-wrap {
+    position: relative; display: inline-block; vertical-align: middle;
+  }
+  .tip-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    font-size: 10px; font-weight: 600; cursor: pointer;
+    margin-left: 4px; line-height: 1;
+  }
+  .tip-icon.warn  { color: #fbbf24; background: rgba(251,191,36,0.12); border: 0.5px solid rgba(251,191,36,0.35); }
+  .tip-icon.fixed { color: #60a5fa; background: rgba(96,165,250,0.1);  border: 0.5px solid rgba(96,165,250,0.3);  font-size:9px; width:auto; border-radius:3px; padding:0 4px; }
+  .tip-icon.warn:hover  { background: rgba(251,191,36,0.25); }
+  .tip-icon.fixed:hover { background: rgba(96,165,250,0.2); }
+  .tip-box {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface2, #1c2030);
+    border-radius: var(--border-radius-md);
+    padding: 7px 11px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 9999;
+    pointer-events: none;
+    min-width: 160px;
+    text-align: center;
+  }
+  .tip-box.warn  { border: 1px solid rgba(251,191,36,0.4); color: #fbbf24; }
+  .tip-box.fixed { border: 1px solid rgba(96,165,250,0.4);  color: #60a5fa; }
+  .tip-wrap:hover .tip-box { display: block; }
+
   .monthly-section {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1253,12 +1287,18 @@ function showDetail(key, day) {
     const badgeLbl = prov==='Trans'?'Trans':prov==='Ethos'?'Ethos':prov==='Mutual'?'Mutual':prov==='Balt'?'Baltimore':'Corebridge';
     for (const p of policies) {
       if (isAP) {
-        const correctedFlag = p.corrected ? ` <span style="color:#60a5fa;font-size:10px;background:rgba(96,165,250,0.1);border:0.5px solid rgba(96,165,250,0.3);padding:1px 5px;border-radius:3px" title="Carrier corrected by policy number">↻ fixed</span>` : '';
+        const correctedFlag = p.corrected
+          ? `<span class="tip-wrap"><span class="tip-icon fixed">↻ fixed</span><span class="tip-box fixed">Carrier corrected by policy number format</span></span>`
+          : '';
         rows += `<tr><td>${p.agent}</td><td class="mono">${p.policy}${correctedFlag}</td><td><span class="badge ${badgeCls}">${badgeLbl}</span></td><td class="amount">${fmt(p.premium)}</td></tr>`;
       } else {
         const rateStr = p.rate ? (p.rate*100).toFixed(0)+'%' : '—';
-        const warnIcon = p.defaulted ? ` <span style="color:#fbbf24;font-size:10px" title="${p.warning||''}">⚠</span>` : '';
-        const correctedFlag = p.corrected ? ` <span style="color:#60a5fa;font-size:10px" title="Carrier corrected by policy number">↻</span>` : '';
+        const warnIcon = p.defaulted
+          ? `<span class="tip-wrap"><span class="tip-icon warn">⚠</span><span class="tip-box warn">${p.warning||'Rate was defaulted'}</span></span>`
+          : '';
+        const correctedFlag = p.corrected
+          ? `<span class="tip-wrap"><span class="tip-icon fixed">↻ fixed</span><span class="tip-box fixed">Carrier corrected by policy number format</span></span>`
+          : '';
         const commColor = isRen ? '#a5b4fc' : '#4ade80';
         rows += `<tr>
           <td>${p.agent}</td>
