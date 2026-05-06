@@ -17,25 +17,30 @@
     --muted:     #6b7385;
     --dimmer:    #3d4356;
 
-    --trans:     #e07b3a;
-    --trans-bg:  rgba(224,123,58,0.12);
-    --trans-bdr: rgba(224,123,58,0.3);
-    --trans-text:#f5a96a;
+    --trans:     #dc2626;
+    --trans-bg:  rgba(220,38,38,0.12);
+    --trans-bdr: rgba(220,38,38,0.35);
+    --trans-text:#f87171;
 
-    --ethos:     #4caf82;
-    --ethos-bg:  rgba(76,175,130,0.12);
-    --ethos-bdr: rgba(76,175,130,0.3);
-    --ethos-text:#7dd4a8;
+    --ethos:     #16a34a;
+    --ethos-bg:  rgba(22,163,74,0.12);
+    --ethos-bdr: rgba(22,163,74,0.35);
+    --ethos-text:#4ade80;
 
-    --mutual:     #a78bfa;
-    --mutual-bg:  rgba(167,139,250,0.12);
-    --mutual-bdr: rgba(167,139,250,0.3);
-    --mutual-text:#c4b5fd;
+    --mutual:     #2563eb;
+    --mutual-bg:  rgba(37,99,235,0.12);
+    --mutual-bdr: rgba(37,99,235,0.35);
+    --mutual-text:#60a5fa;
 
-    --balt:       #f472b6;
-    --balt-bg:    rgba(244,114,182,0.12);
-    --balt-bdr:   rgba(244,114,182,0.3);
-    --balt-text:  #f9a8d4;
+    --balt:       #db2777;
+    --balt-bg:    rgba(219,39,119,0.12);
+    --balt-bdr:   rgba(219,39,119,0.35);
+    --balt-text:  #f472b6;
+
+    --core:       #ea580c;
+    --core-bg:    rgba(234,88,12,0.12);
+    --core-bdr:   rgba(234,88,12,0.35);
+    --core-text:  #fb923c;
 
     --gold:      #e8c84a;
     --gold-bg:   rgba(232,200,74,0.12);
@@ -163,7 +168,6 @@
   .card.ethos  .card-value { color: var(--ethos-text); }
   .card.mutual .card-value { color: var(--mutual-text); }
   .card.total  .card-value { color: #a5b4fc; }
-
   /* ── CALENDAR NAV ── */
   .cal-nav {
     display: flex;
@@ -336,6 +340,7 @@
   .pill-ethos  { background: var(--ethos-bg);  color: var(--ethos-text);  border: 1px solid var(--ethos-bdr);  }
   .pill-mutual { background: var(--mutual-bg); color: var(--mutual-text); border: 1px solid var(--mutual-bdr); }
   .pill-balt   { background: var(--balt-bg);   color: var(--balt-text);   border: 1px solid var(--balt-bdr);   }
+  .pill-core   { background: var(--core-bg);   color: var(--core-text);   border: 1px solid var(--core-bdr);   }
 
   /* ── DETAIL PANEL ── */
   .detail-panel {
@@ -399,18 +404,21 @@
   .detail-card.ethos    { background: var(--ethos-bg);   border-color: var(--ethos-bdr);   }
   .detail-card.mutual   { background: var(--mutual-bg);  border-color: var(--mutual-bdr);  }
   .detail-card.balt     { background: var(--balt-bg);    border-color: var(--balt-bdr);    }
+  .detail-card.core     { background: var(--core-bg);    border-color: var(--core-bdr);    }
   .detail-card.combined { background: var(--surface2);   border-color: var(--border2);     }
   .dc-label { font-size: 11px; font-weight: 500; margin-bottom: 4px; }
   .dc-label.trans    { color: var(--trans-text);   }
   .dc-label.ethos    { color: var(--ethos-text);   }
   .dc-label.mutual   { color: var(--mutual-text);  }
   .dc-label.balt     { color: var(--balt-text);    }
+  .dc-label.core     { color: var(--core-text);    }
   .dc-label.combined { color: var(--muted);        }
   .dc-amount { font-size: 18px; font-weight: 600; font-family: 'DM Mono', monospace; }
   .dc-amount.trans    { color: var(--trans-text);  }
   .dc-amount.ethos    { color: var(--ethos-text);  }
   .dc-amount.mutual   { color: var(--mutual-text); }
   .dc-amount.balt     { color: var(--balt-text);   }
+  .dc-amount.core     { color: var(--core-text);   }
   .dc-amount.combined { color: var(--text);        }
   .dc-count { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
@@ -463,8 +471,41 @@
   .badge-ethos  { background: var(--ethos-bg);   color: var(--ethos-text);   border: 1px solid var(--ethos-bdr);   }
   .badge-mutual { background: var(--mutual-bg);  color: var(--mutual-text);  border: 1px solid var(--mutual-bdr);  }
   .badge-balt   { background: var(--balt-bg);    color: var(--balt-text);    border: 1px solid var(--balt-bdr);    }
+  .badge-core   { background: var(--core-bg);    color: var(--core-text);    border: 1px solid var(--core-bdr);    }
 
-  /* ── LOADING / ERROR STATES ── */
+  .monthly-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--border-radius-lg);
+    padding: 20px;
+    margin-bottom: 28px;
+  }
+  .monthly-section h3 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin-bottom: 14px;
+  }
+  .monthly-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .monthly-table th {
+    text-align: right; padding: 6px 10px;
+    color: var(--muted); font-weight: 500;
+    border-bottom: 1px solid var(--border2);
+    white-space: nowrap;
+  }
+  .monthly-table th:first-child { text-align: left; }
+  .monthly-table td {
+    text-align: right; padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--text);
+  }
+  .monthly-table td:first-child { text-align: left; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; color: var(--text); }
+  .monthly-table tr:last-child td { border-bottom: none; }
+  .monthly-table tr.total-row td { border-top: 1px solid var(--border2); font-weight: 600; color: #a5b4fc; padding-top: 10px; }
+  .monthly-table tr.total-row td:first-child { color: #a5b4fc; }
   .state-overlay {
     text-align: center;
     padding: 80px 20px;
@@ -613,6 +654,7 @@ function normalizeProvider(val) {
   if (s.includes('trans')) return 'Trans';
   if (['moo','mutual'].some(k => s.includes(k))) return 'Mutual';
   if (s.includes('baltimore')) return 'Balt';
+  if (s.includes('core') || s.includes('corebrige')) return 'Core';
   return null;
 }
 
@@ -659,9 +701,10 @@ function processRows(rows) {
     const premium = cleanPremium(row[C.annualPremium]);
     if (premium <= 0) continue;
 
-    const days = provider === 'Trans'   ? CONFIG.TRANS_DAYS
-               : provider === 'Ethos'   ? CONFIG.ETHOS_DAYS
-               : provider === 'Mutual'  ? CONFIG.MUTUAL_DAYS
+    const days = provider === 'Trans'  ? CONFIG.TRANS_DAYS
+               : provider === 'Ethos'  ? CONFIG.ETHOS_DAYS
+               : provider === 'Mutual' ? CONFIG.MUTUAL_DAYS
+               : provider === 'Core'   ? CONFIG.COREBRIDGE_DAYS
                : CONFIG.BALT_DAYS;
 
     let payDate;
@@ -750,41 +793,103 @@ function initCalendar() {
 
 // ─── RENDER ───────────────────────────────────────
 function renderSummary() {
-  let tTotal = 0, eTotal = 0, mTotal = 0, bTotal = 0, tCount = 0, eCount = 0, mCount = 0, bCount = 0;
+  let tT=0,eT=0,mT=0,bT=0,cT=0,tC=0,eC=0,mC=0,bC=0,cC=0;
   for (const day of Object.values(paymentData)) {
-    if (day.Trans)  { tTotal += day.Trans.total;  tCount += day.Trans.count;  }
-    if (day.Ethos)  { eTotal += day.Ethos.total;  eCount += day.Ethos.count;  }
-    if (day.Mutual) { mTotal += day.Mutual.total; mCount += day.Mutual.count; }
-    if (day.Balt)   { bTotal += day.Balt.total;   bCount += day.Balt.count;   }
+    if (day.Trans)  { tT += day.Trans.total;  tC += day.Trans.count;  }
+    if (day.Ethos)  { eT += day.Ethos.total;  eC += day.Ethos.count;  }
+    if (day.Mutual) { mT += day.Mutual.total; mC += day.Mutual.count; }
+    if (day.Balt)   { bT += day.Balt.total;   bC += day.Balt.count;   }
+    if (day.Core)   { cT += day.Core.total;   cC += day.Core.count;   }
   }
-  const total = tTotal + eTotal + mTotal + bTotal;
-
+  const total = tT+eT+mT+bT+cT;
   return `
-    <div class="summary-grid" style="grid-template-columns:repeat(5,1fr)">
+    <div class="summary-grid" style="grid-template-columns:repeat(6,1fr)">
       <div class="card total">
         <div class="card-label">Total AP projected</div>
         <div class="card-value">${fmt(total)}</div>
-        <div class="card-sub">${tCount + eCount + mCount + bCount} policies · all carriers</div>
+        <div class="card-sub">${tC+eC+mC+bC+cC} policies · all carriers</div>
       </div>
       <div class="card trans">
         <div class="card-label">Transamerica</div>
-        <div class="card-value">${fmt(tTotal)}</div>
-        <div class="card-sub">${tCount} polic${tCount !== 1 ? 'ies' : 'y'} · eff +7 days</div>
+        <div class="card-value">${fmt(tT)}</div>
+        <div class="card-sub">${tC} polic${tC!==1?'ies':'y'} · eff +5 days</div>
       </div>
       <div class="card ethos">
         <div class="card-label">Ethos / Trustage</div>
-        <div class="card-value">${fmt(eTotal)}</div>
-        <div class="card-sub">${eCount} polic${eCount !== 1 ? 'ies' : 'y'} · eff +13 days</div>
+        <div class="card-value">${fmt(eT)}</div>
+        <div class="card-sub">${eC} polic${eC!==1?'ies':'y'} · eff +9 days</div>
       </div>
       <div class="card mutual">
         <div class="card-label">Mutual of Omaha</div>
-        <div class="card-value">${fmt(mTotal)}</div>
-        <div class="card-sub">${mCount} polic${mCount !== 1 ? 'ies' : 'y'} · eff +10 days</div>
+        <div class="card-value">${fmt(mT)}</div>
+        <div class="card-sub">${mC} polic${mC!==1?'ies':'y'} · eff +8 days</div>
       </div>
       <div class="card" style="border-left:3px solid var(--balt)">
         <div class="card-label" style="color:var(--balt-text)">Baltimore Life</div>
-        <div class="card-value" style="color:var(--balt-text)">${fmt(bTotal)}</div>
-        <div class="card-sub">${bCount} polic${bCount !== 1 ? 'ies' : 'y'} · eff +7 → Wed/Sat</div>
+        <div class="card-value" style="color:var(--balt-text)">${fmt(bT)}</div>
+        <div class="card-sub">${bC} polic${bC!==1?'ies':'y'} · eff +7 → Wed/Sat</div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--core)">
+        <div class="card-label" style="color:var(--core-text)">Corebridge</div>
+        <div class="card-value" style="color:var(--core-text)">${fmt(cT)}</div>
+        <div class="card-sub">${cC} polic${cC!==1?'ies':'y'} · eff +14 days</div>
+      </div>
+    </div>`;
+}
+
+function renderMonthly() {
+  const months = {};
+  for (const [key, day] of Object.entries(paymentData)) {
+    const [y,m] = key.split('-');
+    const mk = `${y}-${m}`;
+    if (!months[mk]) months[mk] = {Trans:0,Ethos:0,Mutual:0,Balt:0,Core:0};
+    if (day.Trans)  months[mk].Trans  += day.Trans.total;
+    if (day.Ethos)  months[mk].Ethos  += day.Ethos.total;
+    if (day.Mutual) months[mk].Mutual += day.Mutual.total;
+    if (day.Balt)   months[mk].Balt   += day.Balt.total;
+    if (day.Core)   months[mk].Core   += day.Core.total;
+  }
+  const sorted = Object.keys(months).sort();
+  if (!sorted.length) return '';
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let gT=0,gE=0,gM=0,gB=0,gC=0, rows='';
+  for (const mk of sorted) {
+    const [y,m] = mk.split('-');
+    const d = months[mk];
+    const rt = d.Trans+d.Ethos+d.Mutual+d.Balt+d.Core;
+    gT+=d.Trans;gE+=d.Ethos;gM+=d.Mutual;gB+=d.Balt;gC+=d.Core;
+    rows+=`<tr>
+      <td>${MN[+m-1]} ${y}</td>
+      <td style="color:var(--trans-text)">${d.Trans>0?fmt(d.Trans):'—'}</td>
+      <td style="color:var(--ethos-text)">${d.Ethos>0?fmt(d.Ethos):'—'}</td>
+      <td style="color:var(--mutual-text)">${d.Mutual>0?fmt(d.Mutual):'—'}</td>
+      <td style="color:var(--balt-text)">${d.Balt>0?fmt(d.Balt):'—'}</td>
+      <td style="color:var(--core-text)">${d.Core>0?fmt(d.Core):'—'}</td>
+      <td style="color:#a5b4fc;font-weight:600">${fmt(rt)}</td>
+    </tr>`;
+  }
+  return `
+    <div class="monthly-section">
+      <h3>Monthly Breakdown by Carrier</h3>
+      <div style="overflow-x:auto">
+        <table class="monthly-table">
+          <thead><tr>
+            <th>Month</th>
+            <th style="color:var(--trans-text)">Transamerica</th>
+            <th style="color:var(--ethos-text)">Ethos</th>
+            <th style="color:var(--mutual-text)">Mutual</th>
+            <th style="color:var(--balt-text)">Baltimore</th>
+            <th style="color:var(--core-text)">Corebridge</th>
+            <th style="color:#a5b4fc">Total</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr class="total-row">
+            <td>Grand Total</td>
+            <td>${fmt(gT)}</td><td>${fmt(gE)}</td><td>${fmt(gM)}</td>
+            <td>${fmt(gB)}</td><td>${fmt(gC)}</td>
+            <td>${fmt(gT+gE+gM+gB+gC)}</td>
+          </tr></tfoot>
+        </table>
       </div>
     </div>`;
 }
@@ -846,10 +951,11 @@ function renderCalendar() {
       </div>
     </div>
     <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:var(--trans)"></div>Transamerica (eff +7 days)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--ethos)"></div>Ethos / Trustage (eff +13 days)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--mutual)"></div>Mutual of Omaha (eff +10 days)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--trans)"></div>Transamerica (eff +5 days)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ethos)"></div>Ethos / Trustage (eff +9 days)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--mutual)"></div>Mutual of Omaha (eff +8 days)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--balt)"></div>Baltimore Life (eff +7 → Wed/Sat)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--core)"></div>Corebridge (eff +14 days)</div>
     </div>
     <div class="day-headers">
       ${DAYS_SHORT.map(d => `<div class="day-header">${d}</div>`).join('')}
@@ -913,6 +1019,12 @@ function renderCalendar() {
           : `B: ${fmt(dayData.Balt.total)}`;
         innerHtml += `<div class="pill pill-balt">${lbl}</div>`;
       }
+      if (dayData.Core) {
+        const lbl = dayData.Core.count > 1
+          ? `CB: ${fmt(dayData.Core.total)} (${dayData.Core.count})`
+          : `CB: ${fmt(dayData.Core.total)}`;
+        innerHtml += `<div class="pill pill-core">${lbl}</div>`;
+      }
     }
 
     weekHtml += `<div class="${cls}" ${onclick}>${innerHtml}</div>`;
@@ -936,7 +1048,7 @@ function renderCalendar() {
 }
 
 function renderApp() {
-  $('app-content').innerHTML = renderSummary() + renderCalendar();
+  $('app-content').innerHTML = renderSummary() + renderMonthly() + renderCalendar();
 }
 
 // ─── DETAIL PANEL ────────────────────────────────
@@ -951,10 +1063,10 @@ function showDetail(key, day) {
   const eTotal = d.Ethos  ? d.Ethos.total  : 0;
   const mTotal = d.Mutual ? d.Mutual.total : 0;
   const bTotal = d.Balt   ? d.Balt.total   : 0;
-  const combined = tTotal + eTotal + mTotal + bTotal;
-  const isShifted = (d.Trans && d.Trans.shifted) || (d.Ethos && d.Ethos.shifted) || (d.Mutual && d.Mutual.shifted) || (d.Balt && d.Balt.shifted);
-
-  $('detail-subtitle').textContent = `${(d.Trans ? d.Trans.count : 0) + (d.Ethos ? d.Ethos.count : 0) + (d.Mutual ? d.Mutual.count : 0) + (d.Balt ? d.Balt.count : 0)} policies · ${fmt(combined)} total`;
+  const cTotal = d.Core   ? d.Core.total   : 0;
+  const combined = tTotal + eTotal + mTotal + bTotal + cTotal;
+  const isShifted = (d.Trans&&d.Trans.shifted)||(d.Ethos&&d.Ethos.shifted)||(d.Mutual&&d.Mutual.shifted)||(d.Balt&&d.Balt.shifted)||(d.Core&&d.Core.shifted);
+  $('detail-subtitle').textContent = `${(d.Trans?d.Trans.count:0)+(d.Ethos?d.Ethos.count:0)+(d.Mutual?d.Mutual.count:0)+(d.Balt?d.Balt.count:0)+(d.Core?d.Core.count:0)} policies · ${fmt(combined)} total`;
   $('shifted-banner').style.display = isShifted ? 'flex' : 'none';
 
   let cards = '';
@@ -970,7 +1082,10 @@ function showDetail(key, day) {
   if (d.Balt) {
     cards += `<div class="detail-card balt"><div class="dc-label balt">Baltimore Life</div><div class="dc-amount balt">${fmt(bTotal)}</div><div class="dc-count">${d.Balt.count} polic${d.Balt.count > 1 ? 'ies' : 'y'}</div></div>`;
   }
-  const numCarriers = (d.Trans?1:0)+(d.Ethos?1:0)+(d.Mutual?1:0)+(d.Balt?1:0);
+  if (d.Core) {
+    cards += `<div class="detail-card core"><div class="dc-label core">Corebridge</div><div class="dc-amount core">${fmt(cTotal)}</div><div class="dc-count">${d.Core.count} polic${d.Core.count > 1 ? 'ies' : 'y'}</div></div>`;
+  }
+  const numCarriers = (d.Trans?1:0)+(d.Ethos?1:0)+(d.Mutual?1:0)+(d.Balt?1:0)+(d.Core?1:0);
   if (numCarriers > 1) {
     cards += `<div class="detail-card combined"><div class="dc-label combined">Combined</div><div class="dc-amount combined">${fmt(combined)}</div><div class="dc-count">all policies</div></div>`;
   }
@@ -979,8 +1094,8 @@ function showDetail(key, day) {
   let rows = '';
   const renderPolicies = (policies, prov) => {
     for (const p of policies) {
-      const badgeCls = prov === 'Trans' ? 'badge-trans' : prov === 'Ethos' ? 'badge-ethos' : prov === 'Mutual' ? 'badge-mutual' : 'badge-balt';
-      const badgeLbl = prov === 'Trans' ? 'Trans' : prov === 'Ethos' ? 'Ethos' : prov === 'Mutual' ? 'Mutual' : 'Baltimore';
+      const badgeCls = prov === 'Trans' ? 'badge-trans' : prov === 'Ethos' ? 'badge-ethos' : prov === 'Mutual' ? 'badge-mutual' : prov === 'Balt' ? 'badge-balt' : 'badge-core';
+      const badgeLbl = prov === 'Trans' ? 'Trans' : prov === 'Ethos' ? 'Ethos' : prov === 'Mutual' ? 'Mutual' : prov === 'Balt' ? 'Baltimore' : 'Corebridge';
       rows += `<tr>
         <td>${p.agent}</td>
         <td class="mono">${p.policy}</td>
@@ -993,6 +1108,7 @@ function showDetail(key, day) {
   if (d.Ethos)  renderPolicies(d.Ethos.policies,  'Ethos');
   if (d.Mutual) renderPolicies(d.Mutual.policies, 'Mutual');
   if (d.Balt)   renderPolicies(d.Balt.policies,   'Balt');
+  if (d.Core)   renderPolicies(d.Core.policies,   'Core');
   $('detail-tbody').innerHTML = rows;
 
   const panel = $('detail-panel');
@@ -1121,7 +1237,7 @@ function applyCustomRange() {
   if (start > end) return;
 
   // Accumulate totals
-  let tT=0,eT=0,mT=0,bT=0,tC=0,eC=0,mC=0,bC=0;
+  let tT=0,eT=0,mT=0,bT=0,cT=0,tC=0,eC=0,mC=0,bC=0,cC=0;
   const rows = [];
 
   const sorted = Object.keys(paymentData).sort();
@@ -1137,14 +1253,15 @@ function applyCustomRange() {
       if (prov === 'Ethos')  { eT += info.total; eC += info.count; }
       if (prov === 'Mutual') { mT += info.total; mC += info.count; }
       if (prov === 'Balt')   { bT += info.total; bC += info.count; }
-      const color = prov==='Trans'?'var(--trans-text)':prov==='Ethos'?'var(--ethos-text)':prov==='Mutual'?'var(--mutual-text)':'var(--balt-text)';
-      const label = prov==='Trans'?'Transamerica':prov==='Ethos'?'Ethos/Trustage':prov==='Mutual'?'Mutual of Omaha':'Baltimore Life';
+      if (prov === 'Core')   { cT += info.total; cC += info.count; }
+      const color = prov==='Trans'?'var(--trans-text)':prov==='Ethos'?'var(--ethos-text)':prov==='Mutual'?'var(--mutual-text)':prov==='Balt'?'var(--balt-text)':'var(--core-text)';
+      const label = prov==='Trans'?'Transamerica':prov==='Ethos'?'Ethos/Trustage':prov==='Mutual'?'Mutual of Omaha':prov==='Balt'?'Baltimore Life':'Corebridge';
       rows.push({dateLabel, label, color, count: info.count, total: info.total});
     }
   }
 
-  const grandTotal = tT + eT + mT + bT;
-  const grandCount = tC + eC + mC + bC;
+  const grandTotal = tT + eT + mT + bT + cT;
+  const grandCount = tC + eC + mC + bC + cC;
 
   // Range label
   document.getElementById('range-label').textContent =
@@ -1157,7 +1274,9 @@ function applyCustomRange() {
     {label:'Ethos/Trustage', val:eT, count:eC, color:'var(--ethos-text)', border:'var(--ethos)'},
     {label:'Mutual of Omaha', val:mT, count:mC, color:'var(--mutual-text)', border:'var(--mutual)'},
     {label:'Baltimore Life', val:bT, count:bC, color:'var(--balt-text)', border:'var(--balt)'},
+    {label:'Corebridge', val:cT, count:cC, color:'var(--core-text)', border:'var(--core)'},
   ];
+  document.getElementById('range-cards').style.gridTemplateColumns = 'repeat(6,1fr)';
   document.getElementById('range-cards').innerHTML = cardData.map(c => `
     <div style="background:var(--surface2);border:1px solid var(--border2);border-left:3px solid ${c.border};border-radius:var(--border-radius-md);padding:12px">
       <div style="font-size:11px;color:${c.color};margin-bottom:4px">${c.label}</div>

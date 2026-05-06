@@ -10,11 +10,11 @@ const CONFIG = {
   SHEET_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTOMQ5L9Xd3KIX8sRhxHVCHj8Vm1JZtBgXCgXO1cHTFNUrwX97V7aVnegxiUIUF531GgpqAy8zU8WAA/pub?gid=676233885&single=true&output=csv",
 
   // Payment windows in CALENDAR DAYS after effective date
-  TRANS_DAYS:   7,
-  ETHOS_DAYS:   13,
-  MUTUAL_DAYS:  10,
-  // Baltimore Life: 7 days after effective date, then next Tuesday or Friday
-  BALT_DAYS:    7,
+  TRANS_DAYS:      5,
+  ETHOS_DAYS:      9,
+  MUTUAL_DAYS:     8,
+  BALT_DAYS:       7,   // then next Wed or Sat
+  COREBRIDGE_DAYS: 14,
 
   // Auto-refresh interval in milliseconds (default: 5 min)
   REFRESH_INTERVAL: 5 * 60 * 1000,
