@@ -684,6 +684,28 @@ function normalizeProvider(val) {
   return null;
 }
 
+// Override carrier based on policy number format when unambiguous
+function overrideProviderByPolicy(policyRaw, currentProvider) {
+  if (!policyRaw) return { provider: currentProvider, corrected: false };
+  const p = policyRaw.toString().trim().replace(/\s+/g, '');
+
+  // L + 7 digits → Baltimore Life (e.g. L0086150)
+  if (/^L\d{7}$/i.test(p)) return { provider: 'Balt', corrected: currentProvider !== 'Balt' };
+  // FEXB prefix → Transamerica
+  if (/^FEXB/i.test(p)) return { provider: 'Trans', corrected: currentProvider !== 'Trans' };
+  // IULA prefix → Transamerica
+  if (/^IULA/i.test(p)) return { provider: 'Trans', corrected: currentProvider !== 'Trans' };
+  // PTSN prefix → Ethos
+  if (/^PTSN/i.test(p)) return { provider: 'Ethos', corrected: currentProvider !== 'Ethos' };
+  // BU prefix → Mutual of Omaha
+  if (/^BU/i.test(p)) return { provider: 'Mutual', corrected: currentProvider !== 'Mutual' };
+  // All digits ~9-11 chars → Corebridge
+  if (/^\d{9,11}$/.test(p)) return { provider: 'Core', corrected: currentProvider !== 'Core' };
+
+  // FEX alone (no B) or anything else — trust the provider field
+  return { provider: currentProvider, corrected: false };
+}
+
 function toBusinessDay(date) {
   const d = new Date(date);
   const dow = d.getDay();
@@ -782,45 +804,48 @@ function processRows(rows) {
     const agent      = row[C.agentName]     || '—';
     const polNum     = row[C.policyNumber]  || '—';
 
-    const days = provider === 'Trans'  ? CONFIG.TRANS_DAYS
-               : provider === 'Ethos'  ? CONFIG.ETHOS_DAYS
-               : provider === 'Mutual' ? CONFIG.MUTUAL_DAYS
-               : provider === 'Core'   ? CONFIG.COREBRIDGE_DAYS
+    // Override carrier by policy number format if unambiguous
+    const { provider: finalProvider, corrected } = overrideProviderByPolicy(polNum, provider);
+
+    const days = finalProvider === 'Trans'  ? CONFIG.TRANS_DAYS
+               : finalProvider === 'Ethos'  ? CONFIG.ETHOS_DAYS
+               : finalProvider === 'Mutual' ? CONFIG.MUTUAL_DAYS
+               : finalProvider === 'Core'   ? CONFIG.COREBRIDGE_DAYS
                : CONFIG.BALT_DAYS;
 
     let payDate;
-    if (provider === 'Balt') payDate = toNextWedSat(addDays(effDate, days));
+    if (finalProvider === 'Balt') payDate = toNextWedSat(addDays(effDate, days));
     else payDate = toBusinessDay(addDays(effDate, days));
     const payKey = dateKey(payDate);
 
     // AP map
     if (!apMap[payKey]) apMap[payKey] = {};
-    if (!apMap[payKey][provider]) apMap[payKey][provider] = { total:0, count:0, policies:[] };
-    apMap[payKey][provider].total += premium;
-    apMap[payKey][provider].count++;
-    apMap[payKey][provider].policies.push({ agent, policy:polNum, premium, provider });
+    if (!apMap[payKey][finalProvider]) apMap[payKey][finalProvider] = { total:0, count:0, policies:[] };
+    apMap[payKey][finalProvider].total += premium;
+    apMap[payKey][finalProvider].count++;
+    apMap[payKey][finalProvider].policies.push({ agent, policy:polNum, premium, provider:finalProvider, corrected });
 
     // Commission
-    const { rate, defaulted, warning } = getCarrierRate(provider, productRaw, dobRaw);
+    const { rate, defaulted, warning } = getCarrierRate(finalProvider, productRaw, dobRaw);
     const advComm = Math.round(premium * rate * CONFIG.ADVANCE_RATE * CONFIG.CHARGEBACK * 100) / 100;
     const renComm = Math.round(premium * rate * CONFIG.RENEWAL_RATE * CONFIG.CHARGEBACK * 100) / 100;
-    const polDetail = { agent, policy:polNum, premium, provider, productRaw, rate, defaulted, warning };
+    const polDetail = { agent, policy:polNum, premium, provider:finalProvider, productRaw, rate, defaulted, warning, corrected };
 
     // Payouts map
     if (!payoutsMap[payKey]) payoutsMap[payKey] = {};
-    if (!payoutsMap[payKey][provider]) payoutsMap[payKey][provider] = { total:0, count:0, policies:[] };
-    payoutsMap[payKey][provider].total += advComm;
-    payoutsMap[payKey][provider].count++;
-    payoutsMap[payKey][provider].policies.push({ ...polDetail, commission:advComm, type:'advance' });
+    if (!payoutsMap[payKey][finalProvider]) payoutsMap[payKey][finalProvider] = { total:0, count:0, policies:[] };
+    payoutsMap[payKey][finalProvider].total += advComm;
+    payoutsMap[payKey][finalProvider].count++;
+    payoutsMap[payKey][finalProvider].policies.push({ ...polDetail, commission:advComm, type:'advance' });
 
     // Renewals map
     const renewDate = addMonthsToDate(payDate, CONFIG.RENEWAL_MONTHS);
     const renewKey  = dateKey(renewDate);
     if (!renewalsMap[renewKey]) renewalsMap[renewKey] = {};
-    if (!renewalsMap[renewKey][provider]) renewalsMap[renewKey][provider] = { total:0, count:0, policies:[] };
-    renewalsMap[renewKey][provider].total += renComm;
-    renewalsMap[renewKey][provider].count++;
-    renewalsMap[renewKey][provider].policies.push({ ...polDetail, commission:renComm, type:'renewal' });
+    if (!renewalsMap[renewKey][finalProvider]) renewalsMap[renewKey][finalProvider] = { total:0, count:0, policies:[] };
+    renewalsMap[renewKey][finalProvider].total += renComm;
+    renewalsMap[renewKey][finalProvider].count++;
+    renewalsMap[renewKey][finalProvider].policies.push({ ...polDetail, commission:renComm, type:'renewal' });
   }
 
   for (const map of [apMap, payoutsMap, renewalsMap]) {
@@ -1228,14 +1253,16 @@ function showDetail(key, day) {
     const badgeLbl = prov==='Trans'?'Trans':prov==='Ethos'?'Ethos':prov==='Mutual'?'Mutual':prov==='Balt'?'Baltimore':'Corebridge';
     for (const p of policies) {
       if (isAP) {
-        rows += `<tr><td>${p.agent}</td><td class="mono">${p.policy}</td><td><span class="badge ${badgeCls}">${badgeLbl}</span></td><td class="amount">${fmt(p.premium)}</td></tr>`;
+        const correctedFlag = p.corrected ? ` <span style="color:#60a5fa;font-size:10px;background:rgba(96,165,250,0.1);border:0.5px solid rgba(96,165,250,0.3);padding:1px 5px;border-radius:3px" title="Carrier corrected by policy number">↻ fixed</span>` : '';
+        rows += `<tr><td>${p.agent}</td><td class="mono">${p.policy}${correctedFlag}</td><td><span class="badge ${badgeCls}">${badgeLbl}</span></td><td class="amount">${fmt(p.premium)}</td></tr>`;
       } else {
         const rateStr = p.rate ? (p.rate*100).toFixed(0)+'%' : '—';
         const warnIcon = p.defaulted ? ` <span style="color:#fbbf24;font-size:10px" title="${p.warning||''}">⚠</span>` : '';
+        const correctedFlag = p.corrected ? ` <span style="color:#60a5fa;font-size:10px" title="Carrier corrected by policy number">↻</span>` : '';
         const commColor = isRen ? '#a5b4fc' : '#4ade80';
         rows += `<tr>
           <td>${p.agent}</td>
-          <td class="mono">${p.policy}</td>
+          <td class="mono">${p.policy}${correctedFlag}</td>
           <td>${p.productRaw||'—'}${warnIcon}</td>
           <td style="color:var(--muted);font-size:11px">${rateStr}</td>
           <td class="amount" style="color:var(--muted)">${fmt(p.premium)}</td>
