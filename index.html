@@ -1437,7 +1437,7 @@ function showDetail(key, day) {
         rows += `<tr><td>${p.agent}</td><td class="mono">${p.policy}${correctedFlag}</td><td><span class="badge ${badgeCls}">${badgeLbl}</span></td><td class="amount">${fmt(p.premium)}</td></tr>`;
       } else if (isPay) {
         const statusInfo = getStatus(p.policy);
-        const st = statusInfo.status, stDate = statusInfo.date;
+        const st = statusInfo.status, stDate = fmtStatusDate(statusInfo.date);
         const rateStr = p.rate ? (p.rate*100).toFixed(0)+'%' : '—';
         const struck = st==='rapid'||st==='chargeback'||st==='cancelled';
         const commColor = st==='paid'?'#4ade80':st==='rapid'?'#fb923c':st==='chargeback'?'#f87171':st==='ipf'?'#facc15':st==='cancelled'?'var(--muted)':'#4ade80';
@@ -1810,8 +1810,9 @@ function openStatusPopup(polNum, status, polInfo) {
 
 function confirmStatusPopup() {
   const dateVal = document.getElementById('sp-date').value;
-  const formatted = dateVal ? new Date(dateVal + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  setStatusData(pendingPolNum, pendingStatus, formatted);
+  // Store as YYYY-MM-DD internally for reliable cross-platform parsing
+  // Display version is formatted only when shown in the UI
+  setStatusData(pendingPolNum, pendingStatus, dateVal || '');
   closeStatusPopup();
   // Refresh detail panel in place — don't rebuild whole app
   if (currentDetailKey) {
@@ -1824,7 +1825,31 @@ function closeStatusPopup() {
   document.getElementById('status-popup').style.display = 'none';
 }
 
-// ─── PAYMENT CALCULATOR ──────────────────────────
+// Format YYYY-MM-DD to "May 7, 2026" for display — safe on all browsers
+function fmtStatusDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${MN[m-1]} ${d}, ${y}`;
+  } catch(e) { return dateStr; }
+}
+
+// Parse a stored date string safely — handles both YYYY-MM-DD and legacy "May 7, 2026"
+function parseSavedDate(dateStr) {
+  if (!dateStr) return null;
+  // YYYY-MM-DD format (new)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  // Legacy formatted string — try native parse as fallback
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d)) return d;
+  } catch(e) {}
+  return null;
+}
 function getCalcTotals(dayKey) {
   const dayData = payoutsData[dayKey];
   let expectedToday = 0, collectedToday = 0, collectedPrior = 0, paidEarly = 0;
@@ -1838,9 +1863,7 @@ function getCalcTotals(dayKey) {
       for (const p of provData.policies) {
         const s = getStatus(p.policy);
         const st = s.status;
-        const paidDate = s.date || '';
-        let paidDateObj = null;
-        if (paidDate) { try { paidDateObj = new Date(paidDate); } catch(e) {} }
+        const paidDateObj = parseSavedDate(s.date);
 
         if (st === 'pending' || st === 'ipf') {
           expectedToday += p.commission;
@@ -1860,19 +1883,19 @@ function getCalcTotals(dayKey) {
 
   // Paid Early — policies scheduled for FUTURE days but paid date matches this day
   for (const [futureKey, futureDay] of Object.entries(payoutsData)) {
-    if (futureKey <= dayKey) continue; // only future scheduled days
+    if (futureKey <= dayKey) continue;
     for (const provData of Object.values(futureDay)) {
       for (const p of provData.policies) {
         const s = getStatus(p.policy);
         if (s.status !== 'paid' || !s.date) continue;
-        try {
-          const paidDateObj = new Date(s.date);
-          const paidDayKey = `${paidDateObj.getFullYear()}-${String(paidDateObj.getMonth()+1).padStart(2,'0')}-${String(paidDateObj.getDate()).padStart(2,'0')}`;
-          if (paidDayKey === dayKey) {
-            paidEarly += p.commission;
-            paidEarlyCount++;
-          }
-        } catch(e) {}
+        const paidDateObj = parseSavedDate(s.date);
+        if (!paidDateObj) continue;
+        // Convert paid date back to YYYY-MM-DD key for comparison
+        const paidDayKey = `${paidDateObj.getFullYear()}-${String(paidDateObj.getMonth()+1).padStart(2,'0')}-${String(paidDateObj.getDate()).padStart(2,'0')}`;
+        if (paidDayKey === dayKey) {
+          paidEarly += p.commission;
+          paidEarlyCount++;
+        }
       }
     }
   }
