@@ -1123,17 +1123,18 @@ function renderCalendar() {
     <div class="cal-nav">
       <div class="cal-title">${MONTHS[calMonth]} ${calYear}</div>
       <div class="nav-controls">
+        ${currentMainTab === 'payouts' ? `
         <div style="position:relative;display:flex;align-items:center">
           <input type="text" id="policy-search" placeholder="Search policy #..." oninput="searchPolicy(this.value)" onkeydown="if(event.key==='Escape'){this.value='';clearSearch()}" style="padding:5px 30px 5px 10px;border:0.5px solid var(--border2);border-radius:var(--border-radius-md);background:var(--surface2);color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;width:160px;outline:none">
           <span id="search-clear" onclick="document.getElementById('policy-search').value='';clearSearch()" style="display:none;position:absolute;right:8px;cursor:pointer;color:var(--muted);font-size:14px;line-height:1">✕</span>
-        </div>
+        </div>` : ''}
         <button class="today-btn" onclick="goToday()">Today</button>
         <button class="today-btn" onclick="toggleRangePicker()" id="range-btn">📊 Range</button>
         <button class="nav-btn" onclick="prevMonth()">←</button>
         <button class="nav-btn" onclick="nextMonth()">→</button>
       </div>
     </div>
-    <div id="search-results" style="display:none;background:var(--surface);border:1px solid var(--border2);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:14px"></div>
+    ${currentMainTab === 'payouts' ? `<div id="search-results" style="display:none;background:var(--surface);border:1px solid var(--border2);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:14px"></div>` : ''}
 
     <div id="range-panel" style="display:none;background:var(--surface);border:1px solid var(--border2);border-radius:var(--border-radius-lg);padding:20px;margin-bottom:16px">
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
@@ -1421,8 +1422,9 @@ function showDetail(key, day) {
   renderCalcStrip(key);
 
   const panel = $('detail-panel');
-  if (!panel.parentElement.classList.contains('main-inner')) {
-    document.querySelector('main').appendChild(panel);
+  const mainEl = document.querySelector('main');
+  if (panel.parentElement !== mainEl) {
+    mainEl.appendChild(panel);
   }
   panel.classList.add('open');
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1828,27 +1830,20 @@ function searchPolicy(query) {
     return;
   }
 
-  // Search all 3 maps
+  // Search payouts tab only
   const found = [];
-  const maps = { 'Effective AP': apData, 'Effective Payouts': payoutsData, 'Effective Renewals': renewalsData };
-
-  for (const [tabName, map] of Object.entries(maps)) {
-    for (const [dateKey, day] of Object.entries(map)) {
-      for (const provData of Object.values(day)) {
-        for (const p of provData.policies) {
-          if (p.policy && p.policy.toUpperCase().includes(q)) {
-            // Avoid duplicate date+tab combos
-            if (!found.find(f => f.dateKey === dateKey && f.tab === tabName)) {
-              found.push({
-                dateKey,
-                tab: tabName,
-                agent: p.agent || '—',
-                policy: p.policy,
-                provider: p.provider,
-                premium: p.premium,
-                commission: p.commission
-              });
-            }
+  for (const [dateKey, day] of Object.entries(payoutsData)) {
+    for (const provData of Object.values(day)) {
+      for (const p of provData.policies) {
+        if (p.policy && p.policy.toUpperCase().includes(q)) {
+          if (!found.find(f => f.dateKey === dateKey)) {
+            found.push({
+              dateKey,
+              agent: p.agent || '—',
+              policy: p.policy,
+              provider: p.provider,
+              commission: p.commission
+            });
           }
         }
       }
@@ -1863,7 +1858,6 @@ function searchPolicy(query) {
     return;
   }
 
-  // Sort by date
   found.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1871,7 +1865,7 @@ function searchPolicy(query) {
 
   resultsEl.style.display = 'block';
   resultsEl.innerHTML = `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${found.length} result${found.length > 1 ? 's' : ''} for "${query}"</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${found.length} result${found.length > 1 ? 's' : ''} for "${query}" — Effective Payouts</div>
     ${found.map(r => {
       const [y, m, d] = r.dateKey.split('-').map(Number);
       const dateLabel = `${MONTHS_SHORT[m-1]} ${d}, ${y}`;
@@ -1881,25 +1875,23 @@ function searchPolicy(query) {
       const stBadge = st !== 'pending'
         ? `<span style="font-size:10px;padding:1px 6px;border-radius:3px;margin-left:6px;background:${st==='paid'?'rgba(22,163,74,.15)':st==='ipf'?'rgba(234,179,8,.15)':st==='rapid'?'rgba(251,146,60,.15)':st==='chargeback'?'rgba(220,38,38,.12)':'rgba(107,114,128,.1)'};color:${st==='paid'?'#4ade80':st==='ipf'?'#facc15':st==='rapid'?'#fb923c':st==='chargeback'?'#f87171':'var(--muted)'}">${st==='paid'?'✓ Paid':st==='ipf'?'⚠ IPF':st==='rapid'?'⚡ Rapid CB':st==='chargeback'?'✕ CB':'Cancelled'}</span>`
         : '';
-      return `<div onclick="jumpToDate('${r.dateKey}','${r.tab}')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:var(--border-radius-md);cursor:pointer;border:0.5px solid var(--border);margin-bottom:5px;background:var(--surface2)" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
+      return `<div onclick="jumpToDate('${r.dateKey}')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:var(--border-radius-md);cursor:pointer;border:0.5px solid var(--border);margin-bottom:5px;background:var(--surface2)" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
         <div>
           <span style="font-family:var(--font-mono);font-size:12px;color:var(--text)">${r.policy}</span>
           ${stBadge}
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${r.agent} · <span style="color:${col}">${r.provider}</span> · ${r.tab}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${r.agent} · <span style="color:${col}">${r.provider}</span></div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:12px">
           <div style="font-size:12px;font-weight:500;color:var(--text)">${dateLabel}</div>
-          <div style="font-size:11px;color:var(--muted)">${r.commission ? '$'+r.commission.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '$'+r.premium.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          <div style="font-size:11px;color:var(--muted)">${r.commission ? fmt(r.commission) : '—'}</div>
         </div>
       </div>`;
     }).join('')}`;
 }
 
-function jumpToDate(dateKey, tabName) {
-  // Switch to correct tab
-  const tabMap = { 'Effective AP': 'ap', 'Effective Payouts': 'payouts', 'Effective Renewals': 'renewals' };
-  const tabId = tabMap[tabName] || 'ap';
-  switchMainTab(tabId);
+function jumpToDate(dateKey) {
+  // Always jump to Effective Payouts
+  switchMainTab('payouts');
 
   // Navigate to correct month
   const [y, m] = dateKey.split('-').map(Number);
@@ -1911,17 +1903,15 @@ function jumpToDate(dateKey, tabName) {
   setTimeout(() => {
     const day = parseInt(dateKey.split('-')[2]);
     showDetail(dateKey, day);
-    // Highlight the cell briefly
-    setTimeout(() => {
-      const cells = document.querySelectorAll('.cal-cell, .cell');
-      cells.forEach(c => { if (c.dataset && c.dataset.key === dateKey) c.style.outline = '2px solid #378ADD'; });
-    }, 100);
   }, 50);
 
   // Clear search
-  document.getElementById('policy-search').value = '';
-  document.getElementById('search-clear').style.display = 'none';
-  document.getElementById('search-results').style.display = 'none';
+  const si = document.getElementById('policy-search');
+  const sc = document.getElementById('search-clear');
+  const sr = document.getElementById('search-results');
+  if (si) si.value = '';
+  if (sc) sc.style.display = 'none';
+  if (sr) sr.style.display = 'none';
 }
 
 function clearSearch() {
