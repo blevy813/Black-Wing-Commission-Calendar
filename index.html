@@ -1838,15 +1838,24 @@ function fmtStatusDate(dateStr) {
 // Parse a stored date string safely — handles both YYYY-MM-DD and legacy "May 7, 2026"
 function parseSavedDate(dateStr) {
   if (!dateStr) return null;
-  // YYYY-MM-DD format (new)
+  // YYYY-MM-DD format (new standard)
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Date(y, m - 1, d);
   }
-  // Legacy formatted string — try native parse as fallback
+  // Legacy "May 7, 2026" format — parse manually for iOS Safari compatibility
+  const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  const match = dateStr.match(/^(\w{3})\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (match) {
+    const mon = MONTHS[match[1]];
+    const day = parseInt(match[2]);
+    const year = parseInt(match[3]);
+    if (mon !== undefined && day && year) return new Date(year, mon, day);
+  }
+  // Last resort — try native parse
   try {
     const d = new Date(dateStr);
-    if (!isNaN(d)) return d;
+    if (!isNaN(d.getTime())) return d;
   } catch(e) {}
   return null;
 }
