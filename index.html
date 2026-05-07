@@ -570,7 +570,6 @@
   .calc-card .cc-lbl { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
   .calc-card .cc-val { font-size: 15px; font-weight: 500; font-family: 'DM Mono', monospace; }
   .calc-card .cc-sub { font-size: 10px; margin-top: 2px; opacity: .75; }
-  .calc-arrow { color: var(--dimmer); font-size: 13px; padding: 0 1px; align-self: center; }
   .cc-expected { background: var(--surface2); border: 0.5px solid var(--border2); }
   .cc-expected .cc-lbl, .cc-expected .cc-sub { color: var(--muted); }
   .cc-expected .cc-val { color: var(--text); }
@@ -578,10 +577,6 @@
   .cc-today .cc-lbl, .cc-today .cc-val, .cc-today .cc-sub { color: #4ade80; }
   .cc-prior { background: rgba(96,165,250,.08); border: 0.5px solid rgba(96,165,250,.2); }
   .cc-prior .cc-lbl, .cc-prior .cc-val, .cc-prior .cc-sub { color: #60a5fa; }
-  .cc-net-outstanding { border: 1.5px solid rgba(165,180,252,.4); background: rgba(165,180,252,.06); }
-  .cc-net-outstanding .cc-lbl, .cc-net-outstanding .cc-val, .cc-net-outstanding .cc-sub { color: #a5b4fc; }
-  .cc-net-covered { border: 1.5px solid rgba(22,163,74,.4); background: rgba(22,163,74,.08); }
-  .cc-net-covered .cc-lbl, .cc-net-covered .cc-val, .cc-net-covered .cc-sub { color: #4ade80; }
 
   /* ── STATUS TOGGLES ── */
   .status-tog-group{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;width:fit-content}
@@ -1753,69 +1748,69 @@ function closeStatusPopup() {
 
 // ─── PAYMENT CALCULATOR ──────────────────────────
 function getCalcTotals(dayKey) {
-  // Expected today = pending + IPF on this day (payoutsData)
-  let expectedToday = 0, collectedToday = 0, pendingCount = 0, paidCount = 0;
   const dayData = payoutsData[dayKey];
+  let expectedToday = 0, collectedToday = 0, collectedPrior = 0;
+  let expectedCount = 0, collectedTodayCount = 0, collectedPriorCount = 0;
+
   if (dayData) {
     for (const provData of Object.values(dayData)) {
       for (const p of provData.policies) {
-        const st = getStatus(p.policy).status;
-        if (st === 'pending' || st === 'ipf') { expectedToday += p.commission; pendingCount++; }
-        if (st === 'paid') { collectedToday += p.commission; paidCount++; }
+        const s = getStatus(p.policy);
+        const st = s.status;
+        const paidDate = s.date || '';
+
+        if (st === 'pending' || st === 'ipf') {
+          expectedToday += p.commission;
+          expectedCount++;
+        } else if (st === 'paid') {
+          // Parse paid date and compare to scheduled date
+          const scheduledDate = new Date(dayKey + 'T00:00:00');
+          let paidDateObj = null;
+          if (paidDate) {
+            try { paidDateObj = new Date(paidDate); } catch(e) {}
+          }
+          // Collected prior = paid before the scheduled date
+          if (paidDateObj && paidDateObj < scheduledDate) {
+            collectedPrior += p.commission;
+            collectedPriorCount++;
+          } else {
+            // Collected today = paid on or after scheduled date (on time or late)
+            collectedToday += p.commission;
+            collectedTodayCount++;
+          }
+        }
       }
     }
   }
 
-  // Prior collected = all Paid policies from days BEFORE this one (across payoutsData)
-  let priorCollected = 0;
-  for (const [k, day] of Object.entries(payoutsData)) {
-    if (k >= dayKey) continue;
-    for (const provData of Object.values(day)) {
-      for (const p of provData.policies) {
-        if (getStatus(p.policy).status === 'paid') priorCollected += p.commission;
-      }
-    }
-  }
-
-  const netOutstanding = Math.max(0, expectedToday - priorCollected);
-  return { expectedToday, collectedToday, priorCollected, netOutstanding, pendingCount, paidCount };
+  return { expectedToday, collectedToday, collectedPrior, expectedCount, collectedTodayCount, collectedPriorCount };
 }
 
 function renderCalcStrip(dayKey) {
   const strip = document.getElementById('calc-strip');
   if (!strip) return;
-
-  // Only show on payouts tab
   if (currentMainTab !== 'payouts') { strip.style.display = 'none'; return; }
 
-  const { expectedToday, collectedToday, priorCollected, netOutstanding, pendingCount, paidCount } = getCalcTotals(dayKey);
-  const covered = netOutstanding <= 0;
+  const { expectedToday, collectedToday, collectedPrior, expectedCount, collectedTodayCount, collectedPriorCount } = getCalcTotals(dayKey);
 
   strip.style.display = 'flex';
   strip.innerHTML = `
     <div class="calc-card cc-expected">
       <div class="cc-lbl">Expected today</div>
       <div class="cc-val">${fmt(expectedToday)}</div>
-      <div class="cc-sub">${pendingCount} pending</div>
+      <div class="cc-sub">${expectedCount} pending</div>
     </div>
-    <span class="calc-arrow">−</span>
-    <div class="calc-card cc-today">
-      <div class="cc-lbl">Collected today</div>
-      <div class="cc-val">${fmt(collectedToday)}</div>
-      <div class="cc-sub">${paidCount} paid today</div>
-    </div>
-    <span class="calc-arrow">−</span>
     <div class="calc-card cc-prior">
       <div class="cc-lbl">Collected prior days</div>
-      <div class="cc-val">${fmt(priorCollected)}</div>
-      <div class="cc-sub">running total</div>
+      <div class="cc-val">${collectedPrior > 0 ? fmt(collectedPrior) : '—'}</div>
+      <div class="cc-sub">${collectedPriorCount > 0 ? `${collectedPriorCount} paid early` : 'none yet'}</div>
     </div>
-    <span class="calc-arrow">=</span>
-    <div class="calc-card ${covered ? 'cc-net-covered' : 'cc-net-outstanding'}">
-      <div class="cc-lbl">Net outstanding</div>
-      <div class="cc-val">${covered ? '✓ ' : ''}${fmt(netOutstanding)}</div>
-      <div class="cc-sub">${covered ? 'fully covered' : 'still expected'}</div>
+    <div class="calc-card cc-today">
+      <div class="cc-lbl">Collected today</div>
+      <div class="cc-val">${collectedToday > 0 ? fmt(collectedToday) : '—'}</div>
+      <div class="cc-sub">${collectedTodayCount > 0 ? `${collectedTodayCount} paid` : 'none yet'}</div>
     </div>`;
+}
 }
 
 // ─── POLICY SEARCH ───────────────────────────────
