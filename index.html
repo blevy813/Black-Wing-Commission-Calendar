@@ -567,10 +567,12 @@
   .status-tog:hover{background:var(--surface2);color:var(--text)}
   .status-tog.tog-pending{background:var(--surface2);color:var(--text)}
   .status-tog.tog-paid{background:rgba(22,163,74,.15);color:#4ade80}
+  .status-tog.tog-ipf{background:rgba(234,179,8,.15);color:#facc15}
   .status-tog.tog-rapid{background:rgba(251,146,60,.15);color:#fb923c}
   .status-tog.tog-chargeback{background:rgba(220,38,38,.12);color:#f87171}
   .status-tog.tog-cancelled{background:rgba(107,114,128,.1);color:var(--muted)}
   .impact-rapid{font-size:10px;color:#fb923c;background:rgba(251,146,60,.08);border-radius:3px;padding:1px 5px;display:inline-block;margin-top:3px}
+  .impact-ipf{font-size:10px;color:#facc15;background:rgba(234,179,8,.08);border-radius:3px;padding:1px 5px;display:inline-block;margin-top:3px}
   .impact-cb{font-size:10px;color:#60a5fa;background:rgba(96,165,250,.08);border-radius:3px;padding:1px 5px;display:inline-block;margin-top:3px}
 
   .state-overlay {
@@ -1338,19 +1340,22 @@ function showDetail(key, day) {
         const st = statusInfo.status, stDate = statusInfo.date;
         const rateStr = p.rate ? (p.rate*100).toFixed(0)+'%' : '—';
         const struck = st==='rapid'||st==='chargeback'||st==='cancelled';
-        const commColor = st==='paid'?'#4ade80':st==='rapid'?'#fb923c':st==='chargeback'?'#f87171':st==='cancelled'?'var(--muted)':'#4ade80';
+        const commColor = st==='paid'?'#4ade80':st==='rapid'?'#fb923c':st==='chargeback'?'#f87171':st==='ipf'?'#facc15':st==='cancelled'?'var(--muted)':'#4ade80';
         const stLabel = st==='pending'?`<span style="font-size:11px;color:var(--muted)">—</span>`
           :st==='paid'?`<span style="font-size:11px;color:#4ade80">✓ Paid${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`
+          :st==='ipf'?`<span style="font-size:11px;color:#facc15">⚠ IPF${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`
           :st==='rapid'?`<span style="font-size:11px;color:#fb923c">⚡ Rapid CB${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`
           :st==='chargeback'?`<span style="font-size:11px;color:#f87171">✕ CB${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`
           :`<span style="font-size:11px;color:var(--muted)">Cancelled${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`;
-        const impact = st==='rapid'?`<div class="impact-rapid">Full advance from earnings · reserve reversed</div>`
+        const impact = st==='ipf'?`<div class="impact-ipf">First payment failed — monitor · may still pay or rapid CB</div>`
+          :st==='rapid'?`<div class="impact-rapid">Full advance from earnings · reserve reversed</div>`
           :st==='chargeback'?`<div class="impact-cb">${fmt(Math.round(p.commission*(0.25/0.75)*100)/100)} from reserve bank first</div>`:'';
         const polKey = p.policy.replace(/'/g,"\\'");
         const commStr = fmt(p.commission);
         const tog = `<div class="status-tog-group">
           <button class="status-tog ${st==='pending'?'tog-pending':''}" onclick="openStatusPopup('${polKey}','pending',null)">Pending</button>
           <button class="status-tog ${st==='paid'?'tog-paid':''}" onclick="openStatusPopup('${polKey}','paid',{comm:'${commStr}'})">✓ Paid</button>
+          <button class="status-tog ${st==='ipf'?'tog-ipf':''}" onclick="openStatusPopup('${polKey}','ipf',{comm:'${commStr}'})">⚠ IPF</button>
           <button class="status-tog ${st==='rapid'?'tog-rapid':''}" onclick="openStatusPopup('${polKey}','rapid',{comm:'${commStr}'})">⚡ Rapid CB</button>
           <button class="status-tog ${st==='chargeback'?'tog-chargeback':''}" onclick="openStatusPopup('${polKey}','chargeback',{comm:'${commStr}'})">✕ CB</button>
           <button class="status-tog ${st==='cancelled'?'tog-cancelled':''}" onclick="openStatusPopup('${polKey}','cancelled',null)">Cancelled</button>
@@ -1671,20 +1676,22 @@ function openStatusPopup(polNum, status, polInfo) {
   pendingPolNum = polNum;
   pendingStatus = status;
 
-  const titles = { paid: 'Confirm payment received', rapid: 'Rapid chargeback — within 30 days', chargeback: 'Standard chargeback — 30+ days', cancelled: 'Policy cancelled' };
+  const titles = { paid: 'Confirm payment received', ipf: 'Initial Premium Failed', rapid: 'Rapid chargeback — within 30 days', chargeback: 'Standard chargeback — 30+ days', cancelled: 'Policy cancelled' };
   const rules = {
     paid: 'Commission confirmed received. Marks this policy as settled.',
+    ipf: 'Client missed their first payment. Commission may never arrive — but some carriers still advance it. Monitor this policy. If paid later, mark as Paid. If clawed back, mark as Rapid CB.',
     rapid: 'Chargeback within 30 days of statement date. Full advance is recovered from current or future earnings. Reserve is also reversed — reduces the chargeback bank.',
     chargeback: 'Chargeback after 30 days. Chargeback reserve bank is applied first until depleted. Any remaining balance is recovered from earnings.',
     cancelled: 'Client cancelled policy. Track the date for your records. No immediate commission impact unless tied to a chargeback.'
   };
   const btnStyles = {
     paid: 'background:rgba(22,163,74,.2);border-color:rgba(22,163,74,.5);color:#4ade80',
+    ipf: 'background:rgba(234,179,8,.2);border-color:rgba(234,179,8,.5);color:#facc15',
     rapid: 'background:rgba(251,146,60,.2);border-color:rgba(251,146,60,.5);color:#fb923c',
     chargeback: 'background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4);color:#f87171',
     cancelled: 'background:var(--surface2);border-color:var(--border2);color:var(--muted)'
   };
-  const btnLabels = { paid: 'Confirm paid', rapid: 'Mark rapid chargeback', chargeback: 'Mark chargeback', cancelled: 'Mark cancelled' };
+  const btnLabels = { paid: 'Confirm paid', ipf: 'Mark IPF', rapid: 'Mark rapid chargeback', chargeback: 'Mark chargeback', cancelled: 'Mark cancelled' };
 
   document.getElementById('sp-title').textContent = titles[status];
   document.getElementById('sp-sub').textContent = `${polNum}${polInfo ? ' · $' + polInfo.comm : ''}`;
