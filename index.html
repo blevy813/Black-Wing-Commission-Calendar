@@ -1741,32 +1741,29 @@ function closeStatusPopup() {
 // ─── PAYMENT CALCULATOR ──────────────────────────
 function getCalcTotals(dayKey) {
   const dayData = payoutsData[dayKey];
-  let expectedToday = 0, collectedToday = 0, collectedPrior = 0;
-  let expectedCount = 0, collectedTodayCount = 0, collectedPriorCount = 0;
+  let expectedToday = 0, collectedToday = 0, collectedPrior = 0, paidEarly = 0;
+  let expectedCount = 0, collectedTodayCount = 0, collectedPriorCount = 0, paidEarlyCount = 0;
 
+  const scheduledDate = new Date(dayKey + 'T00:00:00');
+
+  // Policies scheduled FOR this day
   if (dayData) {
     for (const provData of Object.values(dayData)) {
       for (const p of provData.policies) {
         const s = getStatus(p.policy);
         const st = s.status;
         const paidDate = s.date || '';
+        let paidDateObj = null;
+        if (paidDate) { try { paidDateObj = new Date(paidDate); } catch(e) {} }
 
         if (st === 'pending' || st === 'ipf') {
           expectedToday += p.commission;
           expectedCount++;
         } else if (st === 'paid') {
-          // Parse paid date and compare to scheduled date
-          const scheduledDate = new Date(dayKey + 'T00:00:00');
-          let paidDateObj = null;
-          if (paidDate) {
-            try { paidDateObj = new Date(paidDate); } catch(e) {}
-          }
-          // Collected prior = paid before the scheduled date
           if (paidDateObj && paidDateObj < scheduledDate) {
             collectedPrior += p.commission;
             collectedPriorCount++;
           } else {
-            // Collected today = paid on or after scheduled date (on time or late)
             collectedToday += p.commission;
             collectedTodayCount++;
           }
@@ -1775,7 +1772,26 @@ function getCalcTotals(dayKey) {
     }
   }
 
-  return { expectedToday, collectedToday, collectedPrior, expectedCount, collectedTodayCount, collectedPriorCount };
+  // Paid Early — policies scheduled for FUTURE days but paid date matches this day
+  for (const [futureKey, futureDay] of Object.entries(payoutsData)) {
+    if (futureKey <= dayKey) continue; // only future scheduled days
+    for (const provData of Object.values(futureDay)) {
+      for (const p of provData.policies) {
+        const s = getStatus(p.policy);
+        if (s.status !== 'paid' || !s.date) continue;
+        try {
+          const paidDateObj = new Date(s.date);
+          const paidDayKey = `${paidDateObj.getFullYear()}-${String(paidDateObj.getMonth()+1).padStart(2,'0')}-${String(paidDateObj.getDate()).padStart(2,'0')}`;
+          if (paidDayKey === dayKey) {
+            paidEarly += p.commission;
+            paidEarlyCount++;
+          }
+        } catch(e) {}
+      }
+    }
+  }
+
+  return { expectedToday, collectedToday, collectedPrior, paidEarly, expectedCount, collectedTodayCount, collectedPriorCount, paidEarlyCount };
 }
 
 function renderCalcStrip(dayKey) {
@@ -1783,13 +1799,13 @@ function renderCalcStrip(dayKey) {
   if (!strip) return;
   if (currentMainTab !== 'payouts') { strip.style.display = 'none'; return; }
 
-  const { expectedToday, collectedToday, collectedPrior, expectedCount, collectedTodayCount, collectedPriorCount } = getCalcTotals(dayKey);
+  const { expectedToday, collectedToday, collectedPrior, paidEarly, expectedCount, collectedTodayCount, collectedPriorCount, paidEarlyCount } = getCalcTotals(dayKey);
 
   strip.style.display = 'flex';
   strip.innerHTML = `
     <div class="calc-card cc-expected">
       <div class="cc-lbl">Expected today</div>
-      <div class="cc-val">${fmt(expectedToday)}</div>
+      <div class="cc-val">${expectedToday > 0 ? fmt(expectedToday) : '—'}</div>
       <div class="cc-sub">${expectedCount} pending</div>
     </div>
     <div class="calc-card cc-prior">
@@ -1801,6 +1817,11 @@ function renderCalcStrip(dayKey) {
       <div class="cc-lbl">Collected today</div>
       <div class="cc-val">${collectedToday > 0 ? fmt(collectedToday) : '—'}</div>
       <div class="cc-sub">${collectedTodayCount > 0 ? `${collectedTodayCount} paid` : 'none yet'}</div>
+    </div>
+    <div class="calc-card" style="background:rgba(234,179,8,.08);border:0.5px solid rgba(234,179,8,.25)">
+      <div class="cc-lbl" style="color:#facc15">Paid early</div>
+      <div class="cc-val" style="color:#facc15">${paidEarly > 0 ? fmt(paidEarly) : '—'}</div>
+      <div class="cc-sub" style="color:#facc15;opacity:.75">${paidEarlyCount > 0 ? `${paidEarlyCount} future polic${paidEarlyCount > 1 ? 'ies' : 'y'}` : 'none'}</div>
     </div>`;
 }
 
