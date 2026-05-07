@@ -966,6 +966,7 @@ function splitCSVLine(line) {
 
 // ─── CALENDAR STATE ───────────────────────────────
 let calYear, calMonth;
+let currentDetailKey = null, currentDetailDay = null;
 let paymentData = {};   // active map (changes with tab)
 let apData = {}, payoutsData = {}, renewalsData = {};
 let currentMainTab = 'ap';
@@ -1262,6 +1263,8 @@ function renderApp() {
 
 // ─── DETAIL PANEL ────────────────────────────────
 function showDetail(key, day) {
+  currentDetailKey = key;
+  currentDetailDay = day;
   const d = paymentData[key];
   if (!d) return;
 
@@ -1584,7 +1587,6 @@ function getStatus(polNum) {
 
 function setStatusData(polNum, status, date) {
   policyStatuses[polNum] = { status, date };
-  updateBankDisplay();
 }
 
 function updateBankDisplay() {
@@ -1625,7 +1627,7 @@ let pendingPolNum = null, pendingStatus = null;
 function openStatusPopup(polNum, status, polInfo) {
   if (status === 'pending') {
     setStatusData(polNum, 'pending', null);
-    renderApp();
+    if (currentDetailKey) showDetail(currentDetailKey, currentDetailDay);
     return;
   }
   pendingPolNum = polNum;
@@ -1657,17 +1659,18 @@ function openStatusPopup(polNum, status, polInfo) {
   document.getElementById('status-popup').style.display = 'block';
 }
 
-function closeStatusPopup() {
-  document.getElementById('status-overlay').style.display = 'none';
-  document.getElementById('status-popup').style.display = 'none';
-}
-
 function confirmStatusPopup() {
   const dateVal = document.getElementById('sp-date').value;
   const formatted = dateVal ? new Date(dateVal + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
   setStatusData(pendingPolNum, pendingStatus, formatted);
   closeStatusPopup();
-  renderApp();
+  // Refresh detail panel in place — don't rebuild whole app
+  if (currentDetailKey) showDetail(currentDetailKey, currentDetailDay);
+}
+
+function closeStatusPopup() {
+  document.getElementById('status-overlay').style.display = 'none';
+  document.getElementById('status-popup').style.display = 'none';
 }
 
 // ─── BOOT ────────────────────────────────────────
