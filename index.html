@@ -1700,7 +1700,7 @@ function loadStatusesFromStorage() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) Object.assign(policyStatuses, JSON.parse(saved));
-    // One-time fix: correct dates that were saved 1 day behind due to UTC timezone bug
+    localStorage.removeItem('bwc_dates_fixed_v1'); // clear old flag so v2 runs
     fixExistingDates();
   } catch(e) { console.warn('Could not load local statuses:', e); }
 }
@@ -1708,23 +1708,35 @@ function loadStatusesFromStorage() {
 // Shift all YYYY-MM-DD dates forward by 1 day (one-time fix for timezone bug)
 // Only runs if not already corrected
 function fixExistingDates() {
-  const FIXED_KEY = 'bwc_dates_fixed_v1';
+  const FIXED_KEY = 'bwc_dates_fixed_v2'; // bumped to v2 to re-run correction
   if (localStorage.getItem(FIXED_KEY)) return; // already ran
   let changed = false;
   for (const [pol, info] of Object.entries(policyStatuses)) {
     if (info.date && /^\d{4}-\d{2}-\d{2}$/.test(info.date)) {
       const [y, m, d] = info.date.split('-').map(Number);
-      const corrected = new Date(y, m - 1, d + 1); // shift +1 day
+      // Add 1 day to correct the UTC→local timezone shift
+      const corrected = new Date(y, m - 1, d + 1);
       const newDate = `${corrected.getFullYear()}-${String(corrected.getMonth()+1).padStart(2,'0')}-${String(corrected.getDate()).padStart(2,'0')}`;
       policyStatuses[pol] = { ...info, date: newDate };
       changed = true;
     }
+    // Also fix legacy "May 6, 2026" style dates that are off by 1
+    else if (info.date && !info.date.includes('GMT')) {
+      const parsed = parseSavedDate(info.date);
+      if (parsed) {
+        // Shift forward 1 day
+        const corrected = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + 1);
+        const newDate = `${corrected.getFullYear()}-${String(corrected.getMonth()+1).padStart(2,'0')}-${String(corrected.getDate()).padStart(2,'0')}`;
+        policyStatuses[pol] = { ...info, date: newDate };
+        changed = true;
+      }
+    }
   }
   if (changed) {
     saveStatusesToStorage();
-    scheduleSyncToSheet(); // push corrected dates to sheet too
+    scheduleSyncToSheet();
   }
-  localStorage.setItem(FIXED_KEY, '1'); // mark as done
+  localStorage.setItem(FIXED_KEY, '1');
 }
 
 function saveStatusesToStorage() {
