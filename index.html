@@ -701,12 +701,12 @@
     .detail-title { font-size: 14px; }
     .detail-subtitle { font-size: 10px; }
 
-    /* Calc strip — vertical stack on mobile */
-    #calc-strip { flex-direction: column; gap: 6px; width: 100%; }
-    .calc-card { text-align: left; min-width: unset; width: 100%; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
-    .calc-card .cc-lbl { margin-bottom: 0; }
-    .calc-card .cc-val { font-size: 14px; }
-    .calc-card .cc-sub { display: none; }
+    /* Calc strip — 2x2 grid on mobile, same layout as desktop cards */
+    #calc-strip { flex-wrap: wrap; gap: 6px; width: 100%; }
+    #calc-strip .calc-card { flex: 1 1 calc(50% - 3px); min-width: calc(50% - 3px); text-align: left; padding: 10px 12px; }
+    #calc-strip .calc-card .cc-lbl { font-size: 10px; margin-bottom: 3px; }
+    #calc-strip .calc-card .cc-val { font-size: 14px; font-weight: 500; }
+    #calc-strip .calc-card .cc-sub { font-size: 10px; margin-top: 2px; opacity: .8; }
 
     /* Detail cards */
     .detail-cards { gap: 5px; }
@@ -1891,22 +1891,22 @@ function renderCalcStrip(dayKey) {
   strip.innerHTML = `
     <div class="calc-card cc-expected">
       <div class="cc-lbl">Expected today</div>
-      <div class="cc-val">${expectedToday > 0 ? fmt(expectedToday) : '—'}</div>
+      <div class="cc-val">${expectedToday > 0 ? fmt(expectedToday) : '$0.00'}</div>
       <div class="cc-sub">${expectedCount} pending</div>
     </div>
     <div class="calc-card cc-prior">
       <div class="cc-lbl">Collected prior days</div>
-      <div class="cc-val">${collectedPrior > 0 ? fmt(collectedPrior) : '—'}</div>
+      <div class="cc-val">${collectedPrior > 0 ? fmt(collectedPrior) : '$0.00'}</div>
       <div class="cc-sub">${collectedPriorCount > 0 ? `${collectedPriorCount} paid early` : 'none yet'}</div>
     </div>
     <div class="calc-card cc-today">
       <div class="cc-lbl">Collected today</div>
-      <div class="cc-val">${collectedToday > 0 ? fmt(collectedToday) : '—'}</div>
+      <div class="cc-val">${collectedToday > 0 ? fmt(collectedToday) : '$0.00'}</div>
       <div class="cc-sub">${collectedTodayCount > 0 ? `${collectedTodayCount} paid` : 'none yet'}</div>
     </div>
     <div class="calc-card" style="background:rgba(234,179,8,.08);border:0.5px solid rgba(234,179,8,.25)">
       <div class="cc-lbl" style="color:#facc15">Paid early</div>
-      <div class="cc-val" style="color:#facc15">${paidEarly > 0 ? fmt(paidEarly) : '—'}</div>
+      <div class="cc-val" style="color:#facc15">${paidEarly > 0 ? fmt(paidEarly) : '$0.00'}</div>
       <div class="cc-sub" style="color:#facc15;opacity:.75">${paidEarlyCount > 0 ? `${paidEarlyCount} future polic${paidEarlyCount > 1 ? 'ies' : 'y'}` : 'none'}</div>
     </div>`;
 }
