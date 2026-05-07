@@ -1867,39 +1867,57 @@ function closeStatusPopup() {
 // Format YYYY-MM-DD to "May 7, 2026" for display — safe on all browsers
 function fmtStatusDate(dateStr) {
   if (!dateStr) return '';
-  // Already formatted like "May 7, 2026" — return as-is
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-  // YYYY-MM-DD — format for display
-  try {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    if (!MN[m-1]) return dateStr;
-    return `${MN[m-1]} ${d}, ${y}`;
-  } catch(e) { return dateStr; }
+  // YYYY-MM-DD format — convert to "Wed May 6, 2026"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    try {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      return date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+    } catch(e) { return dateStr; }
+  }
+  // Already a long date string like "Wed May 06 2026 20:00:00 GMT..." — strip time
+  if (dateStr.includes('GMT') || dateStr.includes('20:') || dateStr.includes('T')) {
+    try {
+      // Extract just the first 4 words: "Wed May 06 2026"
+      const parts = dateStr.split(' ');
+      if (parts.length >= 4) return `${parts[0]} ${parts[1]} ${parts[2]} ${parts[3]}`;
+    } catch(e) {}
+  }
+  // Already clean like "May 7, 2026" — return as-is
+  return dateStr;
 }
 
 // Parse a stored date string safely — handles both YYYY-MM-DD and legacy "May 7, 2026"
 function parseSavedDate(dateStr) {
   if (!dateStr) return null;
-  // YYYY-MM-DD format (new standard)
+  // YYYY-MM-DD (new standard)
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Date(y, m - 1, d);
   }
-  // Legacy "May 7, 2026" format — parse manually for iOS Safari compatibility
+  // Long format "Wed May 06 2026 20:00:00 GMT..." — extract date parts
+  if (dateStr.includes('GMT') || dateStr.length > 20) {
+    try {
+      // Try to extract month/day/year from the string
+      const match = dateStr.match(/(\w{3})\s+(\d{1,2})\s+(\d{4})/);
+      if (match) {
+        const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+        const mon = MONTHS[match[1]];
+        const day = parseInt(match[2]);
+        const year = parseInt(match[3]);
+        if (mon !== undefined && day && year) return new Date(year, mon, day);
+      }
+    } catch(e) {}
+  }
+  // Legacy "May 7, 2026" format
   const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  const match = dateStr.match(/^(\w{3})\s+(\d{1,2}),?\s+(\d{4})$/);
+  const match = dateStr.match(/(\w{3,})\s+(\d{1,2}),?\s+(\d{4})/);
   if (match) {
-    const mon = MONTHS[match[1]];
+    const mon = MONTHS[match[1].slice(0,3)];
     const day = parseInt(match[2]);
     const year = parseInt(match[3]);
     if (mon !== undefined && day && year) return new Date(year, mon, day);
   }
-  // Last resort — try native parse
-  try {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) return d;
-  } catch(e) {}
   return null;
 }
 function getCalcTotals(dayKey) {
