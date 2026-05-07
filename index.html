@@ -1700,43 +1700,7 @@ function loadStatusesFromStorage() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) Object.assign(policyStatuses, JSON.parse(saved));
-    localStorage.removeItem('bwc_dates_fixed_v1'); // clear old flag so v2 runs
-    fixExistingDates();
   } catch(e) { console.warn('Could not load local statuses:', e); }
-}
-
-// Shift all YYYY-MM-DD dates forward by 1 day (one-time fix for timezone bug)
-// Only runs if not already corrected
-function fixExistingDates() {
-  const FIXED_KEY = 'bwc_dates_fixed_v2'; // bumped to v2 to re-run correction
-  if (localStorage.getItem(FIXED_KEY)) return; // already ran
-  let changed = false;
-  for (const [pol, info] of Object.entries(policyStatuses)) {
-    if (info.date && /^\d{4}-\d{2}-\d{2}$/.test(info.date)) {
-      const [y, m, d] = info.date.split('-').map(Number);
-      // Add 1 day to correct the UTC→local timezone shift
-      const corrected = new Date(y, m - 1, d + 1);
-      const newDate = `${corrected.getFullYear()}-${String(corrected.getMonth()+1).padStart(2,'0')}-${String(corrected.getDate()).padStart(2,'0')}`;
-      policyStatuses[pol] = { ...info, date: newDate };
-      changed = true;
-    }
-    // Also fix legacy "May 6, 2026" style dates that are off by 1
-    else if (info.date && !info.date.includes('GMT')) {
-      const parsed = parseSavedDate(info.date);
-      if (parsed) {
-        // Shift forward 1 day
-        const corrected = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + 1);
-        const newDate = `${corrected.getFullYear()}-${String(corrected.getMonth()+1).padStart(2,'0')}-${String(corrected.getDate()).padStart(2,'0')}`;
-        policyStatuses[pol] = { ...info, date: newDate };
-        changed = true;
-      }
-    }
-  }
-  if (changed) {
-    saveStatusesToStorage();
-    scheduleSyncToSheet();
-  }
-  localStorage.setItem(FIXED_KEY, '1');
 }
 
 function saveStatusesToStorage() {
@@ -1902,20 +1866,21 @@ function closeStatusPopup() {
 // Format YYYY-MM-DD to "May 7, 2026" for display — safe on all browsers
 function fmtStatusDate(dateStr) {
   if (!dateStr) return '';
-  // YYYY-MM-DD — parse as local date to avoid timezone shift
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  // YYYY-MM-DD — format manually, no Date object, no timezone risk
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    try {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const date = new Date(y, m - 1, d); // local midnight, no UTC shift
-      return date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
-    } catch(e) { return dateStr; }
+    const [y, m, d] = dateStr.split('-').map(Number);
+    // Get weekday without timezone shift
+    const dow = new Date(y, m - 1, d).getDay();
+    return `${DN[dow]} ${MN[m-1]} ${d}, ${y}`;
   }
-  // Long format with GMT — strip the time portion
-  if (dateStr.includes('GMT') || dateStr.includes('20:')) {
-    const parts = dateStr.split(' ');
-    if (parts.length >= 4) return `${parts[0]} ${parts[1]} ${parseInt(parts[2])}, ${parts[3]}`;
+  // Long format with GMT — extract parts directly from string
+  if (dateStr.includes('GMT')) {
+    const match = dateStr.match(/(\w{3})\s+(\w{3})\s+(\d{2})\s+(\d{4})/);
+    if (match) return `${match[1]} ${match[2]} ${parseInt(match[3])}, ${match[4]}`;
   }
-  // Already clean like "May 7, 2026" — return as-is
+  // Already clean — return as-is
   return dateStr;
 }
 
