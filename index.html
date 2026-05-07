@@ -349,6 +349,7 @@
     padding: 24px;
     margin-top: 16px;
     display: none;
+    position: relative;
     animation: slideIn 0.18s ease;
   }
   .detail-panel.open { display: block; }
@@ -634,17 +635,102 @@
   }
 
   /* ── RESPONSIVE ── */
+  /* ── TABLET ── */
   @media (max-width: 768px) {
-    header { padding: 0 16px; }
-    main { padding: 16px 12px 60px; }
-    .cal-cell { min-height: 64px; padding: 5px 5px; }
-    .pill { font-size: 9px; padding: 1px 4px; }
-    .cell-date { font-size: 11px; }
-    .summary-grid { grid-template-columns: 1fr 1fr; }
+    header { padding: 0 14px; height: auto; min-height: 52px; flex-wrap: wrap; gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+    main { padding: 0 0 80px; }
+    .summary-grid { grid-template-columns: 1fr 1fr !important; }
+    .monthly-section { padding: 12px 14px; }
+    .monthly-table { font-size: 10px; }
+    .monthly-table th, .monthly-table td { padding: 4px 6px; }
   }
+
+  /* ── IPHONE ── */
   @media (max-width: 480px) {
-    .summary-grid { grid-template-columns: 1fr; }
-    .cal-title { font-size: 16px; }
+    /* Header */
+    header { padding: 10px 14px; gap: 6px; }
+    .logo { gap: 8px; }
+    .logo img { width: 28px; height: 28px; }
+    .logo > div > div:first-child { font-size: 12px; }
+    .logo > div > div:last-child { font-size: 8px; }
+    .header-right { gap: 6px; flex-wrap: wrap; }
+    .header-right button, .header-right label { padding: 4px 8px; font-size: 11px; }
+    .status-pill { font-size: 10px; padding: 3px 8px; }
+
+    /* Tabs */
+    #main-tabs { padding: 0 8px; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .main-tab { padding: 9px 12px; font-size: 12px; white-space: nowrap; }
+
+    /* Bank card */
+    #bank-card { flex-direction: column; align-items: flex-start; gap: 10px; margin: 12px 12px 0; padding: 12px 14px; }
+    #bank-card .bank-stats { gap: 10px; }
+
+    /* Summary cards */
+    .summary-grid { grid-template-columns: 1fr 1fr !important; gap: 6px; }
+    .scard { padding: 9px 10px; }
+    .sc-lbl { font-size: 9px; }
+    .sc-val { font-size: 13px; }
+    .sc-sub { font-size: 9px; }
+
+    /* App content padding */
+    #app-content > div { padding-left: 12px !important; padding-right: 12px !important; }
+
+    /* Monthly table — horizontal scroll */
+    .monthly-section { padding: 10px 12px; margin-bottom: 12px; }
+    .monthly-section h3 { font-size: 9px; }
+    .monthly-table th, .monthly-table td { padding: 4px 5px; font-size: 9px; }
+
+    /* Calendar nav */
+    .cal-nav { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .nav-controls { width: 100%; display: flex; gap: 5px; flex-wrap: wrap; }
+    .nav-controls input { width: 100% !important; }
+    .today-btn, .nav-btn { padding: 5px 10px; font-size: 11px; }
+
+    /* Calendar grid */
+    .cal-week { gap: 1px; }
+    .cal-cell { min-height: 58px; padding: 3px 4px; }
+    .cell-date { font-size: 10px; margin-bottom: 2px; }
+    .today-badge { font-size: 7px; padding: 1px 3px; }
+    .pill { font-size: 8px; padding: 1px 3px; margin-bottom: 1px; }
+    .day-hdr div { font-size: 9px; }
+
+    /* Detail panel */
+    .detail-panel { margin: 8px 0 0; padding: 14px 12px; border-radius: var(--border-radius-md); }
+    .detail-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .detail-header .close-btn { position: absolute; top: 14px; right: 12px; }
+    .detail-title { font-size: 14px; }
+    .detail-subtitle { font-size: 10px; }
+
+    /* Calc strip — vertical stack on mobile */
+    #calc-strip { flex-direction: column; gap: 6px; width: 100%; }
+    .calc-card { text-align: left; min-width: unset; width: 100%; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
+    .calc-card .cc-lbl { margin-bottom: 0; }
+    .calc-card .cc-val { font-size: 14px; }
+    .calc-card .cc-sub { display: none; }
+
+    /* Detail cards */
+    .detail-cards { gap: 5px; }
+    .detail-card { padding: 8px 10px; min-width: 80px; }
+    .dc-amount { font-size: 14px; }
+
+    /* Table — make scrollable */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap table { min-width: 500px; font-size: 10px; }
+    .table-wrap th, .table-wrap td { padding: 5px 6px; }
+
+    /* Status toggles — scrollable row */
+    .status-tog-group { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+    .status-tog { padding: 4px 7px; font-size: 9px; }
+
+    /* Range panel */
+    #range-panel { padding: 14px 12px; }
+    .range-quick-btn { padding: 5px 8px; font-size: 11px; }
+
+    /* Popup */
+    #status-popup { width: calc(100vw - 32px) !important; left: 16px !important; transform: translateY(-50%) !important; }
+
+    /* Search results */
+    #search-results { padding: 10px 12px; }
   }
 </style>
 </head>
