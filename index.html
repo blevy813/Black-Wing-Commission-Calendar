@@ -1309,7 +1309,8 @@ function showDetail(key, day) {
   const combined = tTotal + eTotal + mTotal + bTotal + cTotal;
   const isShifted = (d.Trans&&d.Trans.shifted)||(d.Ethos&&d.Ethos.shifted)||(d.Mutual&&d.Mutual.shifted)||(d.Balt&&d.Balt.shifted)||(d.Core&&d.Core.shifted);
   $('detail-subtitle').textContent = `${(d.Trans?d.Trans.count:0)+(d.Ethos?d.Ethos.count:0)+(d.Mutual?d.Mutual.count:0)+(d.Balt?d.Balt.count:0)+(d.Core?d.Core.count:0)} policies · ${fmt(combined)} total`;
-  $('shifted-banner').style.display = isShifted ? 'flex' : 'none';
+  const shiftedBanner = $('shifted-banner');
+  if (shiftedBanner) shiftedBanner.style.display = isShifted ? 'flex' : 'none';
 
   let cards = '';
   if (d.Trans) {
@@ -1891,7 +1892,7 @@ function searchPolicy(query) {
 
 function jumpToDate(dateKey) {
   // Always jump to Effective Payouts
-  switchMainTab('payouts');
+  if (currentMainTab !== 'payouts') switchMainTab('payouts');
 
   // Navigate to correct month
   const [y, m] = dateKey.split('-').map(Number);
@@ -1899,11 +1900,11 @@ function jumpToDate(dateKey) {
   calMonth = m - 1;
   renderApp();
 
-  // Open detail panel after render
-  setTimeout(() => {
+  // Open detail panel after DOM updates
+  requestAnimationFrame(() => {
     const day = parseInt(dateKey.split('-')[2]);
     showDetail(dateKey, day);
-  }, 50);
+  });
 
   // Clear search
   const si = document.getElementById('policy-search');
