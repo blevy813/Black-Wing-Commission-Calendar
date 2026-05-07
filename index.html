@@ -560,6 +560,29 @@
     font-weight: 500;
   }
 
+  /* ── PAYMENT CALCULATOR ── */
+  .calc-card {
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px;
+    min-width: 105px;
+    text-align: right;
+  }
+  .calc-card .cc-lbl { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+  .calc-card .cc-val { font-size: 15px; font-weight: 500; font-family: 'DM Mono', monospace; }
+  .calc-card .cc-sub { font-size: 10px; margin-top: 2px; opacity: .75; }
+  .calc-arrow { color: var(--dimmer); font-size: 13px; padding: 0 1px; align-self: center; }
+  .cc-expected { background: var(--surface2); border: 0.5px solid var(--border2); }
+  .cc-expected .cc-lbl, .cc-expected .cc-sub { color: var(--muted); }
+  .cc-expected .cc-val { color: var(--text); }
+  .cc-today { background: rgba(22,163,74,.08); border: 0.5px solid rgba(22,163,74,.25); }
+  .cc-today .cc-lbl, .cc-today .cc-val, .cc-today .cc-sub { color: #4ade80; }
+  .cc-prior { background: rgba(96,165,250,.08); border: 0.5px solid rgba(96,165,250,.2); }
+  .cc-prior .cc-lbl, .cc-prior .cc-val, .cc-prior .cc-sub { color: #60a5fa; }
+  .cc-net-outstanding { border: 1.5px solid rgba(165,180,252,.4); background: rgba(165,180,252,.06); }
+  .cc-net-outstanding .cc-lbl, .cc-net-outstanding .cc-val, .cc-net-outstanding .cc-sub { color: #a5b4fc; }
+  .cc-net-covered { border: 1.5px solid rgba(22,163,74,.4); background: rgba(22,163,74,.08); }
+  .cc-net-covered .cc-lbl, .cc-net-covered .cc-val, .cc-net-covered .cc-sub { color: #4ade80; }
+
   /* ── STATUS TOGGLES ── */
   .status-tog-group{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;width:fit-content}
   .status-tog{padding:3px 7px;font-size:9px;font-weight:500;cursor:pointer;border:none;border-right:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .1s}
@@ -683,18 +706,15 @@
 
 <!-- Detail panel (outside main flow so it doesn't shift layout) -->
 <div id="detail-panel" class="detail-panel">
-  <div class="detail-header">
+  <div class="detail-header" style="flex-wrap:wrap;gap:12px;align-items:flex-start">
     <div>
       <div class="detail-title" id="detail-title"></div>
       <div class="detail-subtitle" id="detail-subtitle"></div>
     </div>
+    <div id="calc-strip" style="display:none;flex-wrap:wrap;gap:6px;align-items:center"></div>
     <button class="close-btn" id="close-btn">✕</button>
   </div>
-  <div id="shifted-banner" class="shifted-banner" style="display:none">
-    <span>⚠</span>
-    <span>Some policies were originally due on a weekend and rolled to this Monday.</span>
-  </div>
-  <div class="detail-cards" id="detail-cards"></div>
+  <div id="detail-cards"></div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -1397,6 +1417,9 @@ function showDetail(key, day) {
 
   if (isPay) updateBankFromPolicies(allPols);
 
+  // Render payment calculator (payouts tab only)
+  renderCalcStrip(key);
+
   const panel = $('detail-panel');
   if (!panel.parentElement.classList.contains('main-inner')) {
     document.querySelector('main').appendChild(panel);
@@ -1715,12 +1738,81 @@ function confirmStatusPopup() {
   setStatusData(pendingPolNum, pendingStatus, formatted);
   closeStatusPopup();
   // Refresh detail panel in place — don't rebuild whole app
-  if (currentDetailKey) showDetail(currentDetailKey, currentDetailDay);
+  if (currentDetailKey) {
+    showDetail(currentDetailKey, currentDetailDay);
+  }
 }
 
 function closeStatusPopup() {
   document.getElementById('status-overlay').style.display = 'none';
   document.getElementById('status-popup').style.display = 'none';
+}
+
+// ─── PAYMENT CALCULATOR ──────────────────────────
+function getCalcTotals(dayKey) {
+  // Expected today = pending + IPF on this day (payoutsData)
+  let expectedToday = 0, collectedToday = 0, pendingCount = 0, paidCount = 0;
+  const dayData = payoutsData[dayKey];
+  if (dayData) {
+    for (const provData of Object.values(dayData)) {
+      for (const p of provData.policies) {
+        const st = getStatus(p.policy).status;
+        if (st === 'pending' || st === 'ipf') { expectedToday += p.commission; pendingCount++; }
+        if (st === 'paid') { collectedToday += p.commission; paidCount++; }
+      }
+    }
+  }
+
+  // Prior collected = all Paid policies from days BEFORE this one (across payoutsData)
+  let priorCollected = 0;
+  for (const [k, day] of Object.entries(payoutsData)) {
+    if (k >= dayKey) continue;
+    for (const provData of Object.values(day)) {
+      for (const p of provData.policies) {
+        if (getStatus(p.policy).status === 'paid') priorCollected += p.commission;
+      }
+    }
+  }
+
+  const netOutstanding = Math.max(0, expectedToday - priorCollected);
+  return { expectedToday, collectedToday, priorCollected, netOutstanding, pendingCount, paidCount };
+}
+
+function renderCalcStrip(dayKey) {
+  const strip = document.getElementById('calc-strip');
+  if (!strip) return;
+
+  // Only show on payouts tab
+  if (currentMainTab !== 'payouts') { strip.style.display = 'none'; return; }
+
+  const { expectedToday, collectedToday, priorCollected, netOutstanding, pendingCount, paidCount } = getCalcTotals(dayKey);
+  const covered = netOutstanding <= 0;
+
+  strip.style.display = 'flex';
+  strip.innerHTML = `
+    <div class="calc-card cc-expected">
+      <div class="cc-lbl">Expected today</div>
+      <div class="cc-val">${fmt(expectedToday)}</div>
+      <div class="cc-sub">${pendingCount} pending</div>
+    </div>
+    <span class="calc-arrow">−</span>
+    <div class="calc-card cc-today">
+      <div class="cc-lbl">Collected today</div>
+      <div class="cc-val">${fmt(collectedToday)}</div>
+      <div class="cc-sub">${paidCount} paid today</div>
+    </div>
+    <span class="calc-arrow">−</span>
+    <div class="calc-card cc-prior">
+      <div class="cc-lbl">Collected prior days</div>
+      <div class="cc-val">${fmt(priorCollected)}</div>
+      <div class="cc-sub">running total</div>
+    </div>
+    <span class="calc-arrow">=</span>
+    <div class="calc-card ${covered ? 'cc-net-covered' : 'cc-net-outstanding'}">
+      <div class="cc-lbl">Net outstanding</div>
+      <div class="cc-val">${covered ? '✓ ' : ''}${fmt(netOutstanding)}</div>
+      <div class="cc-sub">${covered ? 'fully covered' : 'still expected'}</div>
+    </div>`;
 }
 
 // ─── POLICY SEARCH ───────────────────────────────
