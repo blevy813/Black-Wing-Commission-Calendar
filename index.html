@@ -1691,19 +1691,59 @@ function applyCustomRange() {
 // ─── STATUS MANAGEMENT ───────────────────────────
 const BANK_INITIAL = 9619.14;
 const STORAGE_KEY = 'bwc_policy_statuses';
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbx9imyTARzK2LT46odnprSmWWR214lOvylAP9SKCfhcyPUaON6BRuvMKP47IfzdkDIj/exec';
 const policyStatuses = {};
+let syncTimeout = null;
 
+// ── Local storage (fast, per-device cache) ──
 function loadStatusesFromStorage() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) Object.assign(policyStatuses, JSON.parse(saved));
-  } catch(e) { console.warn('Could not load saved statuses:', e); }
+  } catch(e) { console.warn('Could not load local statuses:', e); }
 }
 
 function saveStatusesToStorage() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(policyStatuses));
-  } catch(e) { console.warn('Could not save statuses:', e); }
+  } catch(e) { console.warn('Could not save local statuses:', e); }
+}
+
+// ── Google Sheets sync ──
+async function loadStatusesFromSheet() {
+  try {
+    setStatus('loading', 'Syncing statuses…');
+    const res = await fetch(`${SYNC_URL}?action=read`, { method: 'GET' });
+    const data = await res.json();
+    if (data.ok && data.statuses) {
+      // Merge sheet statuses into local (sheet is source of truth)
+      Object.assign(policyStatuses, data.statuses);
+      saveStatusesToStorage();
+      console.log('✓ Statuses synced from sheet:', Object.keys(data.statuses).length);
+    }
+  } catch(e) {
+    console.warn('Could not sync from sheet, using local cache:', e);
+  }
+}
+
+async function saveStatusesToSheet() {
+  try {
+    await fetch(SYNC_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'write', statuses: policyStatuses }),
+    });
+  } catch(e) {
+    console.warn('Could not sync to sheet:', e);
+  }
+}
+
+// Debounced save — waits 1.5s after last change before syncing to sheet
+function scheduleSyncToSheet() {
+  saveStatusesToStorage(); // always save locally immediately
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    saveStatusesToSheet();
+  }, 1500);
 }
 
 function getStatus(polNum) {
@@ -1712,7 +1752,7 @@ function getStatus(polNum) {
 
 function setStatusData(polNum, status, date) {
   policyStatuses[polNum] = { status, date };
-  saveStatusesToStorage();
+  scheduleSyncToSheet();
 }
 
 function exportStatusCSV() {
@@ -1739,7 +1779,7 @@ function importStatusCSV(file) {
         const [pol, status, date] = line.split(',').map(v => v.replace(/"/g,'').trim());
         if (pol && status) { policyStatuses[pol] = { status, date: date||null }; count++; }
       }
-      saveStatusesToStorage();
+      scheduleSyncToSheet();
       alert(`✓ Imported ${count} statuses.`);
       if (currentDetailKey) showDetail(currentDetailKey, currentDetailDay);
     } catch(err) { alert('Import error: ' + err.message); }
@@ -2079,8 +2119,13 @@ async function load() {
   renderApp();
 }
 
-loadStatusesFromStorage();
-initCalendar();
+loadStatusesFromStorage(); // load local cache immediately so UI is fast
+initCalendar();           // start calendar with local data
+// Then sync from sheet in background — updates UI when done
+loadStatusesFromSheet().then(() => {
+  if (currentDetailKey) showDetail(currentDetailKey, currentDetailDay);
+  renderApp();
+});
 load();
 // Auto-refresh
 setInterval(load, CONFIG.REFRESH_INTERVAL);
