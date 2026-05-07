@@ -818,48 +818,40 @@ function toNextWedSat(date) {
   d.setDate(d.getDate() + jump);
   return d;
 }
-function calcAge(dobStr) {
-  if (!dobStr) return null;
-  try {
-    const dob = new Date(dobStr);
-    if (isNaN(dob)) return null;
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-    return age;
-  } catch { return null; }
-}
-
-function getCarrierRate(provider, productRaw, dobStr) {
+function getCarrierRate(provider, productRaw) {
   const p = (productRaw || '').toLowerCase().trim();
-  const age = calcAge(dobStr);
   let rate = 1.0, defaulted = false, warning = '';
 
   if (provider === 'Trans') {
-    if (p.includes('graded'))                        { rate = 0.98; }
-    else if (p.includes('iul'))                      { rate = 1.25; }
-    else                                             { rate = 1.35; if (!p) { defaulted = true; warning = 'No product — defaulted FE Express 135%'; } }
-  } else if (provider === 'Ethos') {
-    if (p.includes('giwl'))                          { rate = 0.28; }
-    else if (age === null)                            { rate = 0.67; defaulted = true; warning = 'No DOB — defaulted 67%'; }
-    else if (age >= 60 && age <= 80)                  { rate = 1.18; }
-    else                                              { rate = 0.67; }
-  } else if (provider === 'Mutual') {
-    if (p.includes('iul'))                            { rate = 1.30; }
-    else if (p.includes('child') || p.includes('wl')) { rate = 1.02; }
-    else if (p.includes('graded'))                    { rate = 0.85; }
-    else if (p.includes('level')) {
-      if (age === null)                               { rate = 1.25; defaulted = true; warning = 'No DOB — defaulted 125%'; }
-      else if (age >= 81)                             { rate = 0.85; }
-      else                                            { rate = 1.25; }
-    } else                                            { rate = 1.25; defaulted = true; warning = 'No product — defaulted 125%'; }
-  } else if (provider === 'Balt')                     { rate = 1.35; }
+    if (p.includes('graded'))               { rate = 0.98; }
+    else if (p.includes('iul'))             { rate = 1.25; }
+    else if (p)                             { rate = 1.35; }
+    else                                    { rate = 1.35; defaulted = true; warning = 'No product type — defaulted FE Express 135%'; }
+  }
+  else if (provider === 'Ethos') {
+    if (p.includes('giwl'))                 { rate = 0.28; }
+    else if (p.includes('81') || p.includes('85')) { rate = 0.67; }
+    else if (p.includes('60') || p.includes('80')) { rate = 1.18; }
+    else if (p.includes('18') || p.includes('59')) { rate = 0.67; }
+    else if (p)                             { rate = 1.18; }
+    else                                    { rate = 1.18; defaulted = true; warning = 'No product type — defaulted Trustage 60-80 118%'; }
+  }
+  else if (provider === 'Mutual') {
+    if (p.includes('iul'))                  { rate = 1.30; }
+    else if (p.includes('child') || p.includes('cwl')) { rate = 1.02; }
+    else if (p.includes('graded'))          { rate = 0.85; }
+    else if (p.includes('81') || p.includes('85')) { rate = 0.85; }
+    else if (p.includes('level') || p.includes('lp') || p.includes('living')) { rate = 1.25; }
+    else if (p)                             { rate = 1.25; }
+    else                                    { rate = 1.25; defaulted = true; warning = 'No product type — defaulted LP Level 125%'; }
+  }
+  else if (provider === 'Balt')             { rate = 1.35; }
   else if (provider === 'Core') {
-    if (p.includes('giwl'))                           { rate = 0.80; }
-    else if (p.includes('max'))                       { rate = 1.32; }
-    else if (p.includes('siwl'))                      { rate = 0.92; }
-    else                                              { rate = 0.80; defaulted = true; warning = 'No product — defaulted GIWL 80%'; }
+    if (p.includes('giwl'))                 { rate = 0.80; }
+    else if (p.includes('max'))             { rate = 1.32; }
+    else if (p.includes('siwl'))            { rate = 0.92; }
+    else if (p)                             { rate = 0.92; }
+    else                                    { rate = 0.80; defaulted = true; warning = 'No product type — defaulted GIWL 80%'; }
   }
   return { rate, defaulted, warning };
 }
@@ -909,7 +901,7 @@ function processRows(rows) {
     apMap[payKey][finalProvider].policies.push({ agent, policy:polNum, premium, provider:finalProvider, corrected });
 
     // Commission
-    const { rate, defaulted, warning } = getCarrierRate(finalProvider, productRaw, dobRaw);
+    const { rate, defaulted, warning } = getCarrierRate(finalProvider, productRaw);
     const advComm = Math.round(premium * rate * CONFIG.ADVANCE_RATE * CONFIG.CHARGEBACK * 100) / 100;
     const renComm = Math.round(premium * rate * CONFIG.RENEWAL_RATE * CONFIG.CHARGEBACK * 100) / 100;
     const polDetail = { agent, policy:polNum, premium, provider:finalProvider, productRaw, rate, defaulted, warning, corrected };
