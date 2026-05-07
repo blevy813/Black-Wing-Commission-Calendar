@@ -91,8 +91,7 @@
     border-radius: 7px;
     display: flex; align-items: center; justify-content: center;
     font-size: 14px;
-  }
-  .header-right {
+  }  .header-right {
     display: flex;
     align-items: center;
     gap: 16px;
@@ -561,6 +560,19 @@
     font-weight: 500;
   }
 
+  /* ── STATUS TOGGLES ── */
+  .status-tog-group{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;width:fit-content}
+  .status-tog{padding:3px 7px;font-size:9px;font-weight:500;cursor:pointer;border:none;border-right:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .1s}
+  .status-tog:last-child{border-right:none}
+  .status-tog:hover{background:var(--surface2);color:var(--text)}
+  .status-tog.tog-pending{background:var(--surface2);color:var(--text)}
+  .status-tog.tog-paid{background:rgba(22,163,74,.15);color:#4ade80}
+  .status-tog.tog-rapid{background:rgba(251,146,60,.15);color:#fb923c}
+  .status-tog.tog-chargeback{background:rgba(220,38,38,.12);color:#f87171}
+  .status-tog.tog-cancelled{background:rgba(107,114,128,.1);color:var(--muted)}
+  .impact-rapid{font-size:10px;color:#fb923c;background:rgba(251,146,60,.08);border-radius:3px;padding:1px 5px;display:inline-block;margin-top:3px}
+  .impact-cb{font-size:10px;color:#60a5fa;background:rgba(96,165,250,.08);border-radius:3px;padding:1px 5px;display:inline-block;margin-top:3px}
+
   .state-overlay {
     text-align: center;
     padding: 80px 20px;
@@ -620,8 +632,11 @@
 
 <header>
   <div class="logo">
-    <div class="logo-icon">🖤</div>
-    Black Wing Commission Calendar
+    <img src="logo.jpg" alt="Black Wing Ventures" style="width:32px;height:32px;object-fit:contain;border-radius:6px;background:#080808;padding:1px;flex-shrink:0">
+    <div>
+      <div style="font-size:14px;font-weight:500;color:var(--text);letter-spacing:-.01em">Black Wing Commission Calendar</div>
+      <div style="font-size:9px;color:#378ADD;letter-spacing:.1em;text-transform:uppercase;margin-top:1px">Ventures</div>
+    </div>
   </div>
   <div class="header-right">
     <span id="last-updated"></span>
@@ -638,6 +653,21 @@
     <button class="main-tab" onclick="switchMainTab('payouts')" id="tab-payouts">Effective Payouts</button>
     <button class="main-tab" onclick="switchMainTab('renewals')" id="tab-renewals">Effective Renewals</button>
   </div>
+
+  <!-- Chargeback Bank — shown on Payouts tab only -->
+  <div id="bank-card" style="display:none;margin:20px 24px 0;background:var(--surface);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:var(--border-radius-lg);padding:14px 18px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Chargeback Reserve Bank</div>
+      <div style="font-size:20px;font-weight:600;color:#60a5fa" id="bank-amount">$9,619.14</div>
+      <div style="width:120px;height:3px;background:var(--surface2);border-radius:2px;margin-top:6px;overflow:hidden"><div id="bank-bar" style="height:3px;background:#60a5fa;border-radius:2px;width:100%;transition:width .4s"></div></div>
+    </div>
+    <div style="display:flex;gap:16px">
+      <div style="text-align:right"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Starting</div><div style="font-size:13px;font-weight:500">$9,619.14</div></div>
+      <div style="text-align:right"><div style="font-size:10px;color:#f87171;margin-bottom:2px">Applied</div><div style="font-size:13px;font-weight:500;color:#f87171" id="bank-applied">—</div></div>
+      <div style="text-align:right"><div style="font-size:10px;color:#60a5fa;margin-bottom:2px">Remaining</div><div style="font-size:13px;font-weight:500;color:#60a5fa" id="bank-remaining">$9,619.14</div></div>
+    </div>
+  </div>
+
   <div id="app-content">
     <div class="state-overlay">
       <div class="spinner"></div>
@@ -1217,14 +1247,14 @@ function switchMainTab(tab) {
   ['ap','payouts','renewals'].forEach(t => {
     $('tab-'+t).classList.toggle('active', t === tab);
   });
+  // Show bank card only on payouts tab
+  const bankCard = $('bank-card');
+  if (bankCard) bankCard.style.display = tab === 'payouts' ? 'flex' : 'none';
   $('detail-panel').classList.remove('open');
   renderApp();
 }
 
 function renderApp() {
-  const tabLabel = currentMainTab === 'ap' ? 'Annual Premium'
-                 : currentMainTab === 'payouts' ? 'Advance Commission'
-                 : 'Renewal Commission (+10 mo)';
   $('app-content').innerHTML = `<div style="padding:24px 24px 0">${renderSummary()}</div>
     <div style="padding:0 24px">${renderMonthly()}</div>
     <div style="padding:0 24px">${renderCalendar()}</div>`;
@@ -1272,41 +1302,73 @@ function showDetail(key, day) {
 
   const isAP  = currentMainTab === 'ap';
   const isRen = currentMainTab === 'renewals';
+  const isPay = currentMainTab === 'payouts';
 
   // Update table headers based on tab
   const thead = document.querySelector('#detail-panel thead tr');
   if (thead) {
     thead.innerHTML = isAP
       ? `<th>Agent</th><th>Policy #</th><th>Carrier</th><th style="text-align:right">Annual Premium</th>`
-      : `<th>Agent</th><th>Policy #</th><th>Product</th><th>Rate</th><th style="text-align:right">Annual Premium</th><th style="text-align:right">${isRen?'Renewal':'Advance'} Commission</th>`;
+      : isPay
+      ? `<th>Agent</th><th>Policy #</th><th>Product</th><th>Rate</th><th style="text-align:right">AP</th><th style="text-align:right">Advance Comm.</th><th>Status</th><th style="text-align:center">Toggle</th>`
+      : `<th>Agent</th><th>Policy #</th><th>Product</th><th>Rate</th><th style="text-align:right">AP</th><th style="text-align:right">Renewal Comm.</th>`;
   }
 
+  const allPols = [];
   let rows = '';
   const renderPolicies = (policies, prov) => {
     const badgeCls = prov==='Trans'?'badge-trans':prov==='Ethos'?'badge-ethos':prov==='Mutual'?'badge-mutual':prov==='Balt'?'badge-balt':'badge-core';
     const badgeLbl = prov==='Trans'?'Trans':prov==='Ethos'?'Ethos':prov==='Mutual'?'Mutual':prov==='Balt'?'Baltimore':'Corebridge';
     for (const p of policies) {
+      allPols.push(p);
+      const correctedFlag = p.corrected
+        ? `<span class="tip-wrap"><span class="tip-icon fixed">↻ fixed</span><span class="tip-box fixed">Carrier corrected by policy number format</span></span>` : '';
+      const warnIcon = p.defaulted
+        ? `<span class="tip-wrap"><span class="tip-icon warn">⚠</span><span class="tip-box warn">${p.warning||'Rate was defaulted'}</span></span>` : '';
+
       if (isAP) {
-        const correctedFlag = p.corrected
-          ? `<span class="tip-wrap"><span class="tip-icon fixed">↻ fixed</span><span class="tip-box fixed">Carrier corrected by policy number format</span></span>`
-          : '';
         rows += `<tr><td>${p.agent}</td><td class="mono">${p.policy}${correctedFlag}</td><td><span class="badge ${badgeCls}">${badgeLbl}</span></td><td class="amount">${fmt(p.premium)}</td></tr>`;
-      } else {
+      } else if (isPay) {
+        const statusInfo = getStatus(p.policy);
+        const st = statusInfo.status, stDate = statusInfo.date;
         const rateStr = p.rate ? (p.rate*100).toFixed(0)+'%' : '—';
-        const warnIcon = p.defaulted
-          ? `<span class="tip-wrap"><span class="tip-icon warn">⚠</span><span class="tip-box warn">${p.warning||'Rate was defaulted'}</span></span>`
-          : '';
-        const correctedFlag = p.corrected
-          ? `<span class="tip-wrap"><span class="tip-icon fixed">↻ fixed</span><span class="tip-box fixed">Carrier corrected by policy number format</span></span>`
-          : '';
-        const commColor = isRen ? '#a5b4fc' : '#4ade80';
+        const struck = st==='rapid'||st==='chargeback'||st==='cancelled';
+        const commColor = st==='paid'?'#4ade80':st==='rapid'?'#fb923c':st==='chargeback'?'#f87171':st==='cancelled'?'var(--muted)':'#4ade80';
+        const stLabel = st==='pending'?`<span style="font-size:11px;color:var(--muted)">—</span>`
+          :st==='paid'?`<span style="font-size:11px;color:#4ade80">✓ Paid${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`
+          :st==='rapid'?`<span style="font-size:11px;color:#fb923c">⚡ Rapid CB${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`
+          :st==='chargeback'?`<span style="font-size:11px;color:#f87171">✕ CB${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`
+          :`<span style="font-size:11px;color:var(--muted)">Cancelled${stDate?`<br><span style="font-size:10px;color:var(--muted)">${stDate}</span>`:''}</span>`;
+        const impact = st==='rapid'?`<div class="impact-rapid">Full advance from earnings · reserve reversed</div>`
+          :st==='chargeback'?`<div class="impact-cb">${fmt(Math.round(p.commission*(0.25/0.75)*100)/100)} from reserve bank first</div>`:'';
+        const polKey = p.policy.replace(/'/g,"\\'");
+        const commStr = fmt(p.commission);
+        const tog = `<div class="status-tog-group">
+          <button class="status-tog ${st==='pending'?'tog-pending':''}" onclick="openStatusPopup('${polKey}','pending',null)">Pending</button>
+          <button class="status-tog ${st==='paid'?'tog-paid':''}" onclick="openStatusPopup('${polKey}','paid',{comm:'${commStr}'})">✓ Paid</button>
+          <button class="status-tog ${st==='rapid'?'tog-rapid':''}" onclick="openStatusPopup('${polKey}','rapid',{comm:'${commStr}'})">⚡ Rapid CB</button>
+          <button class="status-tog ${st==='chargeback'?'tog-chargeback':''}" onclick="openStatusPopup('${polKey}','chargeback',{comm:'${commStr}'})">✕ CB</button>
+          <button class="status-tog ${st==='cancelled'?'tog-cancelled':''}" onclick="openStatusPopup('${polKey}','cancelled',null)">Cancelled</button>
+        </div>`;
         rows += `<tr>
           <td>${p.agent}</td>
           <td class="mono">${p.policy}${correctedFlag}</td>
           <td>${p.productRaw||'—'}${warnIcon}</td>
           <td style="color:var(--muted);font-size:11px">${rateStr}</td>
           <td class="amount" style="color:var(--muted)">${fmt(p.premium)}</td>
-          <td class="amount" style="color:${commColor};font-weight:500">${fmt(p.commission)}</td>
+          <td><div class="amount" style="color:${commColor};${struck?'text-decoration:line-through;opacity:.6':''}">${fmt(p.commission)}</div>${impact}</td>
+          <td style="min-width:80px">${stLabel}</td>
+          <td style="text-align:center">${tog}</td>
+        </tr>`;
+      } else {
+        const rateStr = p.rate ? (p.rate*100).toFixed(0)+'%' : '—';
+        rows += `<tr>
+          <td>${p.agent}</td>
+          <td class="mono">${p.policy}${correctedFlag}</td>
+          <td>${p.productRaw||'—'}${warnIcon}</td>
+          <td style="color:var(--muted);font-size:11px">${rateStr}</td>
+          <td class="amount" style="color:var(--muted)">${fmt(p.premium)}</td>
+          <td class="amount" style="color:#a5b4fc;font-weight:500">${fmt(p.commission)}</td>
         </tr>`;
       }
     }
@@ -1317,6 +1379,8 @@ function showDetail(key, day) {
   if (d.Balt)   renderPolicies(d.Balt.policies,   'Balt');
   if (d.Core)   renderPolicies(d.Core.policies,   'Core');
   $('detail-tbody').innerHTML = rows;
+
+  if (isPay) updateBankFromPolicies(allPols);
 
   const panel = $('detail-panel');
   if (!panel.parentElement.classList.contains('main-inner')) {
@@ -1510,6 +1574,102 @@ function applyCustomRange() {
   document.getElementById('range-results').style.display = 'block';
 }
 
+// ─── STATUS MANAGEMENT ───────────────────────────
+const BANK_INITIAL = 9619.14;
+const policyStatuses = {}; // policyNumber → {status, date}
+
+function getStatus(polNum) {
+  return policyStatuses[polNum] || { status: 'pending', date: null };
+}
+
+function setStatusData(polNum, status, date) {
+  policyStatuses[polNum] = { status, date };
+  updateBankDisplay();
+}
+
+function updateBankDisplay() {
+  let used = 0;
+  for (const s of Object.values(policyStatuses)) {
+    if (s.status === 'chargeback' || s.status === 'rapid') {
+      // We'd need the reserve amount per policy — approximate as 20% of commission
+      // Actual calculation happens per-policy in the detail panel
+    }
+  }
+  // Bank display updated from detail panel with exact amounts
+}
+
+function updateBankFromPolicies(policies) {
+  let used = 0;
+  for (const p of policies) {
+    const s = getStatus(p.policy);
+    if (s.status === 'chargeback' || s.status === 'rapid') {
+      const reserve = Math.round(p.premium * (p.rate || 1.35) * 0.25 * 0.80 * 100) / 100;
+      used += reserve;
+    }
+  }
+  used = Math.min(used, BANK_INITIAL);
+  const remaining = BANK_INITIAL - used;
+  const pct = Math.max(0, (remaining / BANK_INITIAL) * 100);
+  const bankCard = document.getElementById('bank-card');
+  if (bankCard) {
+    document.getElementById('bank-amount').textContent = '$' + remaining.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('bank-bar').style.width = pct + '%';
+    document.getElementById('bank-applied').textContent = used > 0 ? '−$' + used.toFixed(2) : '—';
+    document.getElementById('bank-remaining').textContent = '$' + remaining.toFixed(2);
+  }
+}
+
+// Popup state
+let pendingPolNum = null, pendingStatus = null;
+
+function openStatusPopup(polNum, status, polInfo) {
+  if (status === 'pending') {
+    setStatusData(polNum, 'pending', null);
+    renderApp();
+    return;
+  }
+  pendingPolNum = polNum;
+  pendingStatus = status;
+
+  const titles = { paid: 'Confirm payment received', rapid: 'Rapid chargeback — within 30 days', chargeback: 'Standard chargeback — 30+ days', cancelled: 'Policy cancelled' };
+  const rules = {
+    paid: 'Commission confirmed received. Marks this policy as settled.',
+    rapid: 'Chargeback within 30 days of statement date. Full advance is recovered from current or future earnings. Reserve is also reversed — reduces the chargeback bank.',
+    chargeback: 'Chargeback after 30 days. Chargeback reserve bank is applied first until depleted. Any remaining balance is recovered from earnings.',
+    cancelled: 'Client cancelled policy. Track the date for your records. No immediate commission impact unless tied to a chargeback.'
+  };
+  const btnStyles = {
+    paid: 'background:rgba(22,163,74,.2);border-color:rgba(22,163,74,.5);color:#4ade80',
+    rapid: 'background:rgba(251,146,60,.2);border-color:rgba(251,146,60,.5);color:#fb923c',
+    chargeback: 'background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4);color:#f87171',
+    cancelled: 'background:var(--surface2);border-color:var(--border2);color:var(--muted)'
+  };
+  const btnLabels = { paid: 'Confirm paid', rapid: 'Mark rapid chargeback', chargeback: 'Mark chargeback', cancelled: 'Mark cancelled' };
+
+  document.getElementById('sp-title').textContent = titles[status];
+  document.getElementById('sp-sub').textContent = `${polNum}${polInfo ? ' · $' + polInfo.comm : ''}`;
+  document.getElementById('sp-rule').textContent = rules[status];
+  document.getElementById('sp-date').value = new Date().toISOString().slice(0, 10);
+  const btn = document.getElementById('sp-confirm');
+  btn.style.cssText = btnStyles[status] + ';padding:7px 14px;border-radius:var(--border-radius-md);border:1px solid;font-size:13px;font-family:\'DM Sans\',sans-serif;cursor:pointer;font-weight:500';
+  btn.textContent = btnLabels[status];
+  document.getElementById('status-overlay').style.display = 'block';
+  document.getElementById('status-popup').style.display = 'block';
+}
+
+function closeStatusPopup() {
+  document.getElementById('status-overlay').style.display = 'none';
+  document.getElementById('status-popup').style.display = 'none';
+}
+
+function confirmStatusPopup() {
+  const dateVal = document.getElementById('sp-date').value;
+  const formatted = dateVal ? new Date(dateVal + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  setStatusData(pendingPolNum, pendingStatus, formatted);
+  closeStatusPopup();
+  renderApp();
+}
+
 // ─── BOOT ────────────────────────────────────────
 async function load() {
   setStatus('loading', 'Loading…');
@@ -1547,5 +1707,19 @@ load();
 // Auto-refresh
 setInterval(load, CONFIG.REFRESH_INTERVAL);
 </script>
+<!-- Status popup overlay -->
+<div id="status-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300" onclick="closeStatusPopup()"></div>
+<div id="status-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);border-radius:var(--border-radius-lg);padding:22px;z-index:301;width:310px;max-width:90vw">
+  <div style="font-size:15px;font-weight:500;color:var(--text);margin-bottom:4px" id="sp-title"></div>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px" id="sp-sub"></div>
+  <div style="font-size:12px;color:var(--muted);background:var(--surface2);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:14px;line-height:1.6" id="sp-rule"></div>
+  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:5px">Date this occurred</label>
+  <input type="date" id="sp-date" style="width:100%;padding:7px 10px;border-radius:var(--border-radius-md);border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif">
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+    <button onclick="closeStatusPopup()" style="padding:7px 14px;border-radius:var(--border-radius-md);border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer">Cancel</button>
+    <button id="sp-confirm" onclick="confirmStatusPopup()" style="padding:7px 14px;border-radius:var(--border-radius-md);border:none;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:500"></button>
+  </div>
+</div>
+
 </body>
 </html>
