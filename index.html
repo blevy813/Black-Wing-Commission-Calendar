@@ -1762,7 +1762,9 @@ function exportStatusCSV() {
   const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = `blackwing_statuses_${new Date().toISOString().slice(0,10)}.csv`;
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  a.download = `blackwing_statuses_${todayStr}.csv`;
   a.click();
 }
 
@@ -1838,7 +1840,10 @@ function openStatusPopup(polNum, status, polInfo) {
   document.getElementById('sp-title').textContent = titles[status];
   document.getElementById('sp-sub').textContent = `${polNum}${polInfo ? ' · $' + polInfo.comm : ''}`;
   document.getElementById('sp-rule').textContent = rules[status];
-  document.getElementById('sp-date').value = new Date().toISOString().slice(0, 10);
+  // Set today's date using local time to avoid UTC timezone shift
+  const now = new Date();
+  const localDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  document.getElementById('sp-date').value = localDate;
   const btn = document.getElementById('sp-confirm');
   btn.style.cssText = btnStyles[status] + ';padding:7px 14px;border-radius:var(--border-radius-md);border:1px solid;font-size:13px;font-family:\'DM Sans\',sans-serif;cursor:pointer;font-weight:500';
   btn.textContent = btnLabels[status];
