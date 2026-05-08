@@ -1715,6 +1715,7 @@ async function loadStatusesFromSheet() {
     const res = await fetch(`${SYNC_URL}?action=read`, { method: 'GET', mode: 'cors' });
     const data = await res.json();
     if (data.ok && data.statuses) {
+      console.log('SHEET STATUSES RECEIVED:', JSON.stringify(data.statuses).slice(0, 300));
       Object.assign(policyStatuses, data.statuses);
       saveStatusesToStorage();
     }
@@ -1853,14 +1854,11 @@ function openStatusPopup(polNum, status, polInfo) {
 
 function confirmStatusPopup() {
   const dateVal = document.getElementById('sp-date').value;
-  // Store as YYYY-MM-DD internally for reliable cross-platform parsing
-  // Display version is formatted only when shown in the UI
+  console.log('DATE INPUT RAW VALUE:', dateVal);
+  console.log('FORMATTED FOR DISPLAY:', fmtStatusDate(dateVal));
   setStatusData(pendingPolNum, pendingStatus, dateVal || '');
   closeStatusPopup();
-  // Refresh detail panel in place — don't rebuild whole app
-  if (currentDetailKey) {
-    showDetail(currentDetailKey, currentDetailDay);
-  }
+  if (currentDetailKey) showDetail(currentDetailKey, currentDetailDay);
 }
 
 function closeStatusPopup() {
