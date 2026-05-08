@@ -579,6 +579,28 @@
   .cc-prior { background: rgba(96,165,250,.08); border: 0.5px solid rgba(96,165,250,.2); }
   .cc-prior .cc-lbl, .cc-prior .cc-val, .cc-prior .cc-sub { color: #60a5fa; }
 
+  /* ── TRUE NUMBERS ── */
+  .tn-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+  .tn-card{background:var(--surface2);border-radius:var(--border-radius-md);padding:12px 14px}
+  .tn-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+  .tn-val{font-size:19px;font-weight:500}
+  .tn-sub{font-size:10px;color:var(--muted);margin-top:3px}
+  .tn-view-toggle{display:flex;gap:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--border-radius-md);padding:3px;margin-bottom:14px;width:fit-content}
+  .tn-vbtn{padding:5px 16px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;border:none;border-radius:6px;background:transparent;color:var(--muted);transition:all .12s}
+  .tn-vbtn.active{background:var(--surface);color:var(--text);border:0.5px solid var(--border2)}
+  .tn-table{width:100%;border-collapse:collapse;font-size:11px;min-width:580px}
+  .tn-table thead th{text-align:left;padding:6px 10px;font-size:10px;font-weight:500;color:var(--muted);border-bottom:0.5px solid var(--border2);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+  .tn-table thead th:not(:first-child){text-align:right}
+  .tn-table tbody tr{border-bottom:0.5px solid var(--border);transition:background .1s}
+  .tn-table tbody tr:hover{background:var(--surface2)}
+  .tn-table tbody tr:last-child{border-bottom:none}
+  .tn-table tbody tr.tn-past{opacity:.45}
+  .tn-table td{padding:7px 10px;color:var(--text);vertical-align:middle}
+  .tn-table td:not(:first-child){text-align:right;font-family:'DM Mono',monospace;font-size:11px}
+  .tn-table tfoot td{border-top:0.5px solid var(--border2);font-weight:500;padding:8px 10px;color:#a5b4fc}
+  .tn-table tfoot td:not(:first-child){text-align:right;font-family:'DM Mono',monospace}
+  .tn-badge{font-size:9px;border-radius:3px;padding:1px 5px;margin-left:5px;vertical-align:middle}
+
   /* ── STATUS TOGGLES ── */
   .status-tog-group{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;width:fit-content}
   .status-tog{padding:3px 7px;font-size:9px;font-weight:500;cursor:pointer;border:none;border-right:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .1s}
@@ -760,6 +782,7 @@
     <button class="main-tab active" onclick="switchMainTab('ap')" id="tab-ap">Effective AP</button>
     <button class="main-tab" onclick="switchMainTab('payouts')" id="tab-payouts">Effective Payouts</button>
     <button class="main-tab" onclick="switchMainTab('renewals')" id="tab-renewals">Effective Renewals</button>
+    <button class="main-tab" onclick="switchMainTab('true')" id="tab-true">True Numbers</button>
   </div>
 
   <!-- Chargeback Bank — shown on Payouts tab only -->
@@ -1439,11 +1462,10 @@ function renderCalendar() {
 
 function switchMainTab(tab) {
   currentMainTab = tab;
-  paymentData = tab === 'ap' ? apData : tab === 'payouts' ? payoutsData : renewalsData;
-  ['ap','payouts','renewals'].forEach(t => {
-    $('tab-'+t).classList.toggle('active', t === tab);
+  paymentData = tab === 'ap' ? apData : tab === 'payouts' ? payoutsData : tab === 'renewals' ? renewalsData : payoutsData;
+  ['ap','payouts','renewals','true'].forEach(t => {
+    const el = $('tab-'+t); if (el) el.classList.toggle('active', t === tab);
   });
-  // Show bank card only on payouts tab
   const bankCard = $('bank-card');
   if (bankCard) bankCard.style.display = tab === 'payouts' ? 'flex' : 'none';
   $('detail-panel').classList.remove('open');
@@ -1451,9 +1473,13 @@ function switchMainTab(tab) {
 }
 
 function renderApp() {
-  $('app-content').innerHTML = `<div style="padding:24px 24px 0">${renderSummary()}</div>
-    <div style="padding:0 24px">${renderMonthly()}</div>
-    <div style="padding:0 24px">${renderCalendar()}</div>`;
+  if (currentMainTab === 'true') {
+    $('app-content').innerHTML = `<div style="padding:24px">${renderTrueNumbers()}</div>`;
+  } else {
+    $('app-content').innerHTML = `<div style="padding:24px 24px 0">${renderSummary()}</div>
+      <div style="padding:0 24px">${renderMonthly()}</div>
+      <div style="padding:0 24px">${renderCalendar()}</div>`;
+  }
 }
 
 // ─── DETAIL PANEL ────────────────────────────────
@@ -2194,6 +2220,204 @@ function clearSearch() {
   const c = document.getElementById('search-clear');
   if (r) r.style.display = 'none';
   if (c) c.style.display = 'none';
+}
+
+// ─── TRUE NUMBERS ────────────────────────────────
+let trueView = 'daily';
+
+function setTrueView(v) {
+  trueView = v;
+  ['daily','weekly','monthly'].forEach(x => {
+    const el = document.getElementById('tn-btn-'+x);
+    if (el) {
+      el.classList.toggle('active', x === v);
+    }
+  });
+  const tbl = document.getElementById('tn-table-wrap');
+  if (tbl) tbl.innerHTML = buildTrueTable();
+}
+
+function getTrueWeekStart(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const dow = dt.getDay();
+  const mon = new Date(y, m-1, d - (dow === 0 ? 6 : dow - 1));
+  return `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+}
+
+function getTrueWeekLabel(wk) {
+  const [y,m,d] = wk.split('-').map(Number);
+  const mon = new Date(y, m-1, d);
+  const sun = new Date(y, m-1, d+6);
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${MN[mon.getMonth()]} ${mon.getDate()} – ${sun.getMonth()!==mon.getMonth()?MN[sun.getMonth()]+' ':''}${sun.getDate()}`;
+}
+
+function buildTrueData() {
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+  let groupFn, labelFn, currentKeyFn, isPastFn;
+  if (trueView === 'daily') {
+    groupFn = d => d;
+    labelFn = d => {
+      const [y,m,day] = d.split('-').map(Number);
+      const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return `${DN[new Date(y,m-1,day).getDay()]} ${MN[m-1]} ${day}`;
+    };
+    isPastFn = k => k < todayKey;
+    currentKeyFn = () => todayKey;
+  } else if (trueView === 'weekly') {
+    groupFn = getTrueWeekStart;
+    labelFn = getTrueWeekLabel;
+    isPastFn = k => {
+      const [y,m,d] = k.split('-').map(Number);
+      const sun = new Date(y,m-1,d+6);
+      const sunKey = `${sun.getFullYear()}-${String(sun.getMonth()+1).padStart(2,'0')}-${String(sun.getDate()).padStart(2,'0')}`;
+      return sunKey < todayKey;
+    };
+    currentKeyFn = () => getTrueWeekStart(todayKey);
+  } else {
+    groupFn = d => d.slice(0,7);
+    labelFn = mk => {
+      const [y,m] = mk.split('-');
+      const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${MN[+m-1]} ${y}`;
+    };
+    isPastFn = k => k < todayKey.slice(0,7);
+    currentKeyFn = () => todayKey.slice(0,7);
+  }
+
+  // Build periods from payoutsData (advance commissions only)
+  const periods = {};
+  for (const [dateKey, day] of Object.entries(payoutsData)) {
+    const pk = groupFn(dateKey);
+    if (!periods[pk]) periods[pk] = { scheduled:0, paidOnTime:0, paidEarly:0, ipf:0, label: labelFn(pk), isPast: isPastFn(pk), isCurrent: pk === currentKeyFn() };
+
+    for (const provData of Object.values(day)) {
+      for (const p of provData.policies) {
+        const comm = p.commission || 0;
+        periods[pk].scheduled += comm;
+
+        const s = getStatus(p.policy);
+        if (s.status === 'paid') {
+          const paidDate = parseSavedDate(s.date);
+          if (paidDate) {
+            const paidKey = groupFn(`${paidDate.getFullYear()}-${String(paidDate.getMonth()+1).padStart(2,'0')}-${String(paidDate.getDate()).padStart(2,'0')}`);
+            if (paidKey < pk) {
+              // Paid early — remove from this period
+              periods[pk].paidEarly += comm;
+            } else {
+              periods[pk].paidOnTime += comm;
+            }
+          } else {
+            periods[pk].paidOnTime += comm;
+          }
+        } else if (s.status === 'ipf') {
+          periods[pk].ipf += comm;
+        }
+      }
+    }
+  }
+
+  return { periods, sorted: Object.keys(periods).sort(), todayKey, currentKey: currentKeyFn() };
+}
+
+function buildTrueTable() {
+  const { periods, sorted } = buildTrueData();
+  let gSched=0, gPaidOT=0, gPaidE=0, gIPF=0, gPipe=0;
+  let rows = '';
+
+  for (const pk of sorted) {
+    const p = periods[pk];
+    const stillExpected = Math.max(0, p.scheduled - p.paidOnTime - p.paidEarly - p.ipf);
+    gSched += p.scheduled; gPaidOT += p.paidOnTime; gPaidE += p.paidEarly; gIPF += p.ipf; gPipe += stillExpected;
+
+    const badge = p.isPast
+      ? `<span class="tn-badge" style="background:var(--surface2);color:var(--muted);border:0.5px solid var(--border2)">past</span>`
+      : p.isCurrent
+      ? `<span class="tn-badge" style="background:rgba(55,138,221,.1);color:#378ADD;border:0.5px solid rgba(55,138,221,.3)">now</span>`
+      : '';
+
+    rows += `<tr class="${p.isPast?'tn-past':''}">
+      <td><span style="font-size:12px;font-weight:500">${p.label}</span>${badge}</td>
+      <td style="color:var(--muted)">${fmt(p.scheduled)}</td>
+      <td style="color:${p.paidOnTime>0?'#4ade80':'var(--muted)'}">${p.paidOnTime>0?fmt(p.paidOnTime):'—'}</td>
+      <td style="color:${p.paidEarly>0?'#4ade80':'var(--muted)'}">${p.paidEarly>0?fmt(p.paidEarly):'—'}</td>
+      <td style="color:${p.ipf>0?'#facc15':'var(--muted)'}">${p.ipf>0?fmt(p.ipf):'—'}</td>
+      <td style="color:${stillExpected>0?'#a5b4fc':'var(--muted)'};font-weight:${stillExpected>0?'500':'400'}">${stillExpected>0?fmt(stillExpected):'—'}</td>
+    </tr>`;
+  }
+
+  return `<div style="overflow-x:auto"><table class="tn-table">
+    <thead><tr>
+      <th>Period</th>
+      <th>Scheduled</th>
+      <th style="color:#4ade80">Paid on time</th>
+      <th style="color:#4ade80">Paid early</th>
+      <th style="color:#facc15">IPF / at risk</th>
+      <th style="color:#a5b4fc">Still expected</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr>
+      <td>Total</td>
+      <td>${fmt(gSched)}</td>
+      <td>${fmt(gPaidOT)}</td>
+      <td>${fmt(gPaidE)}</td>
+      <td>${fmt(gIPF)}</td>
+      <td>${fmt(gPipe)}</td>
+    </tr></tfoot>
+  </table></div>`;
+}
+
+function renderTrueNumbers() {
+  // Summary cards
+  let totalSched=0, totalPaid=0, totalIPF=0;
+  for (const [, day] of Object.entries(payoutsData)) {
+    for (const provData of Object.values(day)) {
+      for (const p of provData.policies) {
+        const comm = p.commission || 0;
+        totalSched += comm;
+        const s = getStatus(p.policy).status;
+        if (s === 'paid') totalPaid += comm;
+        if (s === 'ipf')  totalIPF  += comm;
+      }
+    }
+  }
+  const truePipeline = totalSched - totalPaid;
+
+  return `
+    <div class="tn-cards">
+      <div class="tn-card">
+        <div class="tn-lbl">Total scheduled</div>
+        <div class="tn-val">${fmt(totalSched)}</div>
+        <div class="tn-sub">all advance commissions</div>
+      </div>
+      <div class="tn-card">
+        <div class="tn-lbl" style="color:#4ade80">Collected to date</div>
+        <div class="tn-val" style="color:#4ade80">${fmt(totalPaid)}</div>
+        <div class="tn-sub">marked paid</div>
+      </div>
+      <div class="tn-card">
+        <div class="tn-lbl" style="color:#facc15">IPF / at risk</div>
+        <div class="tn-val" style="color:#facc15">${fmt(totalIPF)}</div>
+        <div class="tn-sub">monitor closely</div>
+      </div>
+      <div class="tn-card" style="border:1px solid rgba(165,180,252,.3);background:rgba(165,180,252,.06)">
+        <div class="tn-lbl" style="color:#a5b4fc">True pipeline</div>
+        <div class="tn-val" style="color:#a5b4fc">${fmt(truePipeline)}</div>
+        <div class="tn-sub">still coming in</div>
+      </div>
+    </div>
+
+    <div class="tn-view-toggle">
+      <button class="tn-vbtn ${trueView==='daily'?'active':''}" id="tn-btn-daily" onclick="setTrueView('daily')">Daily</button>
+      <button class="tn-vbtn ${trueView==='weekly'?'active':''}" id="tn-btn-weekly" onclick="setTrueView('weekly')">Weekly</button>
+      <button class="tn-vbtn ${trueView==='monthly'?'active':''}" id="tn-btn-monthly" onclick="setTrueView('monthly')">Monthly</button>
+    </div>
+
+    <div id="tn-table-wrap">${buildTrueTable()}</div>`;
 }
 
 // ─── BOOT ────────────────────────────────────────
