@@ -1124,7 +1124,42 @@ function renderSummary() {
     </div>`;
 }
 
-function renderMonthly() {
+let breakdownView = 'monthly'; // 'monthly' or 'weekly'
+
+function setBreakdownView(view) {
+  breakdownView = view;
+  const monthBtn = document.getElementById('bd-monthly');
+  const weekBtn  = document.getElementById('bd-weekly');
+  if (monthBtn) {
+    monthBtn.style.background = view === 'monthly' ? 'var(--accent)' : 'transparent';
+    monthBtn.style.color      = view === 'monthly' ? 'white' : 'var(--muted)';
+    weekBtn.style.background  = view === 'weekly'  ? 'var(--accent)' : 'transparent';
+    weekBtn.style.color       = view === 'weekly'  ? 'white' : 'var(--muted)';
+  }
+  const container = document.getElementById('breakdown-table');
+  if (container) container.innerHTML = view === 'monthly' ? buildMonthlyTable() : buildWeeklyTable();
+}
+
+function getWeekLabel(dateKey) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  // Get Monday of this week
+  const dow = date.getDay();
+  const monday = new Date(y, m - 1, d - (dow === 0 ? 6 : dow - 1));
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${MN[monday.getMonth()]} ${monday.getDate()} – ${sunday.getDate() > monday.getDate() || sunday.getMonth() !== monday.getMonth() ? MN[sunday.getMonth()]+' ' : ''}${sunday.getDate()}`;
+}
+
+function getWeekKey(dateKey) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const dow = date.getDay();
+  const monday = new Date(y, m - 1, d - (dow === 0 ? 6 : dow - 1));
+  return `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
+}
+
+function buildMonthlyTable() {
   const months = {};
   for (const [key, day] of Object.entries(paymentData)) {
     const [y,m] = key.split('-');
@@ -1137,13 +1172,8 @@ function renderMonthly() {
     if (day.Core)   months[mk].Core   += day.Core.total;
   }
   const sorted = Object.keys(months).sort();
-  if (!sorted.length) return '';
+  if (!sorted.length) return '<div style="color:var(--muted);font-size:12px;padding:8px 0">No data</div>';
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const isAP = currentMainTab === 'ap';
-  const isRen = currentMainTab === 'renewals';
-  const heading = isAP ? 'Monthly Breakdown — Annual Premiums by Carrier'
-                : isRen ? 'Monthly Breakdown — Renewal Commissions by Carrier (+10 months)'
-                : 'Monthly Breakdown — Advance Commissions by Carrier';
   let gT=0,gE=0,gM=0,gB=0,gC=0, rows='';
   for (const mk of sorted) {
     const [y,m] = mk.split('-');
@@ -1160,29 +1190,91 @@ function renderMonthly() {
       <td style="color:#a5b4fc;font-weight:600">${fmt(rt)}</td>
     </tr>`;
   }
+  return `<div style="overflow-x:auto"><table class="monthly-table">
+    <thead><tr>
+      <th>Month</th>
+      <th style="color:var(--trans-text)">Transamerica</th>
+      <th style="color:var(--ethos-text)">Ethos</th>
+      <th style="color:var(--mutual-text)">Mutual</th>
+      <th style="color:var(--balt-text)">Baltimore</th>
+      <th style="color:var(--core-text)">Corebridge</th>
+      <th style="color:#a5b4fc">Total</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr class="total-row">
+      <td>Grand Total</td>
+      <td>${fmt(gT)}</td><td>${fmt(gE)}</td><td>${fmt(gM)}</td>
+      <td>${fmt(gB)}</td><td>${fmt(gC)}</td>
+      <td>${fmt(gT+gE+gM+gB+gC)}</td>
+    </tr></tfoot>
+  </table></div>`;
+}
+
+function buildWeeklyTable() {
+  const weeks = {}, weekLabels = {};
+  for (const [key, day] of Object.entries(paymentData)) {
+    const wk = getWeekKey(key);
+    if (!weeks[wk]) { weeks[wk] = {Trans:0,Ethos:0,Mutual:0,Balt:0,Core:0}; weekLabels[wk] = getWeekLabel(key); }
+    if (day.Trans)  weeks[wk].Trans  += day.Trans.total;
+    if (day.Ethos)  weeks[wk].Ethos  += day.Ethos.total;
+    if (day.Mutual) weeks[wk].Mutual += day.Mutual.total;
+    if (day.Balt)   weeks[wk].Balt   += day.Balt.total;
+    if (day.Core)   weeks[wk].Core   += day.Core.total;
+  }
+  const sorted = Object.keys(weeks).sort();
+  if (!sorted.length) return '<div style="color:var(--muted);font-size:12px;padding:8px 0">No data</div>';
+  let gT=0,gE=0,gM=0,gB=0,gC=0, rows='';
+  for (const wk of sorted) {
+    const d = weeks[wk];
+    const rt = d.Trans+d.Ethos+d.Mutual+d.Balt+d.Core;
+    gT+=d.Trans;gE+=d.Ethos;gM+=d.Mutual;gB+=d.Balt;gC+=d.Core;
+    rows+=`<tr>
+      <td>${weekLabels[wk]}</td>
+      <td style="color:var(--trans-text)">${d.Trans>0?fmt(d.Trans):'—'}</td>
+      <td style="color:var(--ethos-text)">${d.Ethos>0?fmt(d.Ethos):'—'}</td>
+      <td style="color:var(--mutual-text)">${d.Mutual>0?fmt(d.Mutual):'—'}</td>
+      <td style="color:var(--balt-text)">${d.Balt>0?fmt(d.Balt):'—'}</td>
+      <td style="color:var(--core-text)">${d.Core>0?fmt(d.Core):'—'}</td>
+      <td style="color:#a5b4fc;font-weight:600">${fmt(rt)}</td>
+    </tr>`;
+  }
+  return `<div style="overflow-x:auto"><table class="monthly-table">
+    <thead><tr>
+      <th>Week</th>
+      <th style="color:var(--trans-text)">Transamerica</th>
+      <th style="color:var(--ethos-text)">Ethos</th>
+      <th style="color:var(--mutual-text)">Mutual</th>
+      <th style="color:var(--balt-text)">Baltimore</th>
+      <th style="color:var(--core-text)">Corebridge</th>
+      <th style="color:#a5b4fc">Total</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr class="total-row">
+      <td>Grand Total</td>
+      <td>${fmt(gT)}</td><td>${fmt(gE)}</td><td>${fmt(gM)}</td>
+      <td>${fmt(gB)}</td><td>${fmt(gC)}</td>
+      <td>${fmt(gT+gE+gM+gB+gC)}</td>
+    </tr></tfoot>
+  </table></div>`;
+}
+
+function renderMonthly() {
+  const isAP  = currentMainTab === 'ap';
+  const isRen = currentMainTab === 'renewals';
+  const heading = isAP  ? 'Breakdown — Annual Premiums by Carrier'
+                : isRen ? 'Breakdown — Renewal Commissions by Carrier'
+                :         'Breakdown — Advance Commissions by Carrier';
+  const btnBase = 'padding:5px 14px;font-size:12px;font-family:\'DM Sans\',sans-serif;cursor:pointer;border:none;border-radius:var(--border-radius-md);transition:all .15s';
   return `
     <div class="monthly-section">
-      <h3>${heading}</h3>
-      <div style="overflow-x:auto">
-        <table class="monthly-table">
-          <thead><tr>
-            <th>Month</th>
-            <th style="color:var(--trans-text)">Transamerica</th>
-            <th style="color:var(--ethos-text)">Ethos</th>
-            <th style="color:var(--mutual-text)">Mutual</th>
-            <th style="color:var(--balt-text)">Baltimore</th>
-            <th style="color:var(--core-text)">Corebridge</th>
-            <th style="color:#a5b4fc">Total</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr class="total-row">
-            <td>Grand Total</td>
-            <td>${fmt(gT)}</td><td>${fmt(gE)}</td><td>${fmt(gM)}</td>
-            <td>${fmt(gB)}</td><td>${fmt(gC)}</td>
-            <td>${fmt(gT+gE+gM+gB+gC)}</td>
-          </tr></tfoot>
-        </table>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <h3 style="margin-bottom:0">${heading}</h3>
+        <div style="display:flex;gap:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--border-radius-md);padding:3px;flex-shrink:0">
+          <button id="bd-monthly" onclick="setBreakdownView('monthly')" style="${btnBase};background:${breakdownView==='monthly'?'var(--accent)':'transparent'};color:${breakdownView==='monthly'?'white':'var(--muted)'}">Monthly</button>
+          <button id="bd-weekly"  onclick="setBreakdownView('weekly')"  style="${btnBase};background:${breakdownView==='weekly' ?'var(--accent)':'transparent'};color:${breakdownView==='weekly' ?'white':'var(--muted)'}">Weekly</button>
+        </div>
       </div>
+      <div id="breakdown-table">${breakdownView === 'monthly' ? buildMonthlyTable() : buildWeeklyTable()}</div>
     </div>`;
 }
 
