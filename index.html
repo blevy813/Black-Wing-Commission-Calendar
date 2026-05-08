@@ -1691,7 +1691,7 @@ function applyCustomRange() {
 // ─── STATUS MANAGEMENT ───────────────────────────
 const BANK_INITIAL = 9619.14;
 const STORAGE_KEY = 'bwc_policy_statuses';
-const SYNC_URL = 'https://script.google.com/macros/s/AKfycbwqf_R4Drvug7l8PXBFreGRApO8oLgPRadfK0CMJ_4xQqk1Xdrvnt8ktcMsgr8Yc8bv/exec';
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbw_kkP9apwtiSATbIo1e7GCqJtHeWBetDOt6yeHGwoRF1cUF1x0CeRuMuTLMg25OGvx/exec';
 const policyStatuses = {};
 let syncTimeout = null;
 
@@ -2139,6 +2139,18 @@ async function load() {
   setStatus('live', 'Live');
   setLastUpdated();
   renderApp();
+}
+
+// ONE-TIME CLEAR — wipe all existing statuses to start fresh
+// Remove this block after first load
+const CLEAR_KEY = 'bwc_cleared_v1';
+if (!localStorage.getItem(CLEAR_KEY)) {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem('bwc_dates_fixed_v1');
+  localStorage.removeItem('bwc_dates_fixed_v2');
+  localStorage.setItem(CLEAR_KEY, '1');
+  // Also clear the sheet
+  fetch(`${SYNC_URL}?action=clearall`, { method: 'GET', mode: 'no-cors' });
 }
 
 loadStatusesFromStorage(); // load local cache immediately so UI is fast
