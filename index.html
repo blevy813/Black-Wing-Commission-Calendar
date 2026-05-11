@@ -1842,14 +1842,28 @@ async function loadStatusesFromSheet() {
 }
 async function saveStatusesToSheet() {
   try {
-    // Use no-cors GET with encoded data to work on all browsers including iOS Safari
-    const encoded = encodeURIComponent(JSON.stringify(policyStatuses));
-    await fetch(`${SYNC_URL}?action=write&data=${encoded}`, {
-      method: 'GET',
-      mode: 'no-cors'
-    });
+    // Only sync non-pending statuses to keep payload small
+    const toSync = {};
+    for (const [pol, info] of Object.entries(policyStatuses)) {
+      if (info.status && info.status !== 'pending') toSync[pol] = info;
+    }
+    const encoded = encodeURIComponent(JSON.stringify(toSync));
+    const url = `${SYNC_URL}?action=write&data=${encoded}`;
+    // Use no-cors as fallback — Apps Script handles CORS via redirect
+    const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+    if (res.ok) console.log('✓ Synced to sheet');
   } catch(e) {
-    console.warn('Could not sync to sheet:', e);
+    // Silently retry with no-cors if cors fails (iOS Safari)
+    try {
+      const toSync = {};
+      for (const [pol, info] of Object.entries(policyStatuses)) {
+        if (info.status && info.status !== 'pending') toSync[pol] = info;
+      }
+      const encoded = encodeURIComponent(JSON.stringify(toSync));
+      await fetch(`${SYNC_URL}?action=write&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+    } catch(e2) {
+      console.warn('Sync failed:', e2);
+    }
   }
 }
 
@@ -1869,6 +1883,18 @@ function getStatus(polNum) {
 function setStatusData(polNum, status, date) {
   policyStatuses[polNum] = { status, date };
   scheduleSyncToSheet();
+}
+
+async function writeSingleStatus(polNum, status, date) {
+  try {
+    const payload = encodeURIComponent(JSON.stringify({ [polNum]: { status, date } }));
+    await fetch(`${SYNC_URL}?action=write&data=${payload}`, { method: 'GET', redirect: 'follow' });
+  } catch(e) {
+    try {
+      const payload = encodeURIComponent(JSON.stringify({ [polNum]: { status, date } }));
+      await fetch(`${SYNC_URL}?action=write&data=${payload}`, { method: 'GET', mode: 'no-cors' });
+    } catch(e2) {}
+  }
 }
 
 function exportStatusCSV() {
@@ -1972,6 +1998,8 @@ function openStatusPopup(polNum, status, polInfo) {
 function confirmStatusPopup() {
   const dateVal = document.getElementById('sp-date').value;
   setStatusData(pendingPolNum, pendingStatus, dateVal || '');
+  // Write immediately to sheet without waiting for debounce
+  writeSingleStatus(pendingPolNum, pendingStatus, dateVal || '');
   closeStatusPopup();
   if (currentDetailKey) showDetail(currentDetailKey, currentDetailDay);
 }
